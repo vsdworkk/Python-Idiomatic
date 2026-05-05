@@ -1,0 +1,1848 @@
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm, cm
+from reportlab.lib.colors import HexColor, white, black
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    PageBreak, KeepTogether, HRFlowable, ListFlowable, ListItem
+)
+from reportlab.platypus.flowables import Flowable
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import os
+
+# DEWR Colors
+DEWR_GREEN = HexColor("#719F4C")
+DEWR_DARK_GREEN = HexColor("#5D7A38")
+DEWR_DARK_GREY = HexColor("#404246")
+DEWR_NAVY = DEWR_DARK_GREY
+DEWR_BLUE = DEWR_DARK_GREY
+DEWR_DARK_BLUE = DEWR_DARK_GREY
+DEWR_TEAL = HexColor("#009B9F")
+DEWR_GREY = HexColor("#A4A7A9")
+DEWR_LIGHT_GREY = HexColor("#D7D8D8")
+DEWR_LIME = HexColor("#B5C427")
+DEWR_RED = HexColor("#91040D")
+
+OUTPUT_PATH = "/Users/python/Documents/Public AI Trial /Outputs/DEWR_Public_AI_B.pdf"
+
+
+class CalloutBox(Flowable):
+    """A colored callout box with text."""
+    def __init__(self, text, width, bg_color=DEWR_NAVY, text_color=white, font_size=11, padding=12):
+        Flowable.__init__(self)
+        self.text = text
+        self.box_width = width
+        self.bg_color = bg_color
+        self.text_color = text_color
+        self.font_size = font_size
+        self.padding = padding
+        self._height = None
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        style = ParagraphStyle('callout_measure', fontName='Helvetica-Bold',
+                               fontSize=self.font_size, leading=self.font_size + 4,
+                               textColor=self.text_color)
+        p = Paragraph(self.text, style)
+        w, h = p.wrap(self.box_width - 2 * self.padding, availHeight)
+        self._height = h + 2 * self.padding
+        return self.box_width, self._height
+
+    def draw(self):
+        self.canv.setFillColor(self.bg_color)
+        self.canv.rect(0, 0, self.box_width, self._height, fill=1, stroke=0)
+        style = ParagraphStyle('callout_draw', fontName='Helvetica-Bold',
+                               fontSize=self.font_size, leading=self.font_size + 4,
+                               textColor=self.text_color)
+        p = Paragraph(self.text, style)
+        p.wrap(self.box_width - 2 * self.padding, self._height)
+        p.drawOn(self.canv, self.padding, self.padding)
+
+
+class StatBox(Flowable):
+    """A stat highlight box."""
+    def __init__(self, stat, label, width, color=DEWR_NAVY):
+        Flowable.__init__(self)
+        self.stat = stat
+        self.label = label
+        self.box_width = width
+        self.color = color
+
+    def wrap(self, availWidth, availHeight):
+        return self.box_width, 55
+
+    def draw(self):
+        self.canv.setFillColor(self.color)
+        self.canv.roundRect(0, 0, self.box_width, 55, 4, fill=1, stroke=0)
+        self.canv.setFillColor(white)
+        self.canv.setFont("Helvetica-Bold", 20)
+        self.canv.drawString(12, 28, self.stat)
+        self.canv.setFont("Helvetica", 9)
+        self.canv.drawString(12, 12, self.label)
+
+
+class ComparisonCard(Flowable):
+    """A clean comparison card: metric label on top, two values side-by-side.
+    The 'highlight' value is shown in navy and visually emphasised; the 'compare'
+    value is shown in muted grey for instant contrast."""
+    def __init__(self, metric_label, highlight_value, highlight_label,
+                 compare_value, compare_label, width,
+                 highlight_color=DEWR_NAVY, compare_color=DEWR_GREY):
+        Flowable.__init__(self)
+        self.metric_label = metric_label
+        self.h_value = highlight_value
+        self.h_label = highlight_label
+        self.c_value = compare_value
+        self.c_label = compare_label
+        self.box_width = width
+        self.h_color = highlight_color
+        self.c_color = compare_color
+        self._height = 110
+
+    def wrap(self, availWidth, availHeight):
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+
+        # Metric label (top) - drawn in uppercase, so measure uppercase width
+        c.setFillColor(DEWR_DARK_GREY)
+        label_font = "Helvetica-Bold"
+        label_size = 8.5
+        c.setFont(label_font, label_size)
+        words = self.metric_label.upper().split()
+        inset = 6
+        max_w = self.box_width - 2 * inset
+        line1, line2 = "", ""
+        for w in words:
+            test = (line1 + " " + w).strip()
+            if c.stringWidth(test, label_font, label_size) <= max_w:
+                line1 = test
+            else:
+                test2 = (line2 + " " + w).strip()
+                line2 = test2
+        title_y = self._height - 20
+        c.drawString(inset, title_y, line1)
+        if line2:
+            c.drawString(inset, title_y - 12, line2)
+
+        # Divider
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        line_y = self._height - 43
+        c.line(inset, line_y, self.box_width - inset, line_y)
+
+        # Two halves
+        half = self.box_width / 2
+        # Highlight side (left)
+        c.setFillColor(self.h_color)
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(half / 2, 34, self.h_value)
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica", 7.5)
+        c.drawCentredString(half / 2, 16, self.h_label)
+
+        # Vertical divider
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.line(half, 14, half, line_y - 5)
+
+        # Compare side (right)
+        c.setFillColor(self.c_color)
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(half + half / 2, 34, self.c_value)
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica", 7.5)
+        c.drawCentredString(half + half / 2, 16, self.c_label)
+
+
+class ValueSignalsPanel(Flowable):
+    """Full-width grey evidence panel with headline value signals."""
+    def __init__(self, width, items, title=None, primary_count=None):
+        Flowable.__init__(self)
+        self.box_width = width
+        self.items = items
+        self.title = title
+        self.primary_count = len(items) if primary_count is None else primary_count
+        self._height = 100 if title else 74
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        top_offset = 20 if self.title else 0
+        if self.title:
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(pad, h - 20, self.title)
+            c.setStrokeColor(DEWR_LIGHT_GREY)
+            c.setLineWidth(0.4)
+            c.line(pad, h - 31, w - pad, h - 31)
+
+        col_w = (w - 2 * pad) / len(self.items)
+        value_y = 38 if not self.title else 46
+        label_top_y = 25 if not self.title else 32
+        for i, (value, label) in enumerate(self.items):
+            x = pad + i * col_w
+            cx = x + col_w / 2
+            if i:
+                c.setStrokeColor(DEWR_LIGHT_GREY)
+                c.line(x, 12, x, h - 12 - top_offset)
+            c.setFillColor(DEWR_GREEN if i < self.primary_count else DEWR_DARK_GREY)
+            value_size = 22 if len(value) <= 8 else 17
+            c.setFont("Helvetica-Bold", value_size)
+            c.drawCentredString(cx, value_y, value)
+            p = Paragraph(label, ParagraphStyle(
+                "value_signal_label",
+                fontName="Helvetica",
+                fontSize=7.4,
+                leading=8.2,
+                alignment=TA_CENTER,
+                textColor=DEWR_DARK_GREY,
+            ))
+            _, label_h = p.wrap(col_w - 14, 28)
+            p.drawOn(c, x + 7, label_top_y - label_h)
+
+
+class CalloutSignalsPanel(Flowable):
+    """Green takeaway callout with embedded KPI evidence strip."""
+    def __init__(self, text, width, items, primary_count=None, bg_color=DEWR_DARK_GREEN):
+        Flowable.__init__(self)
+        self.text = text
+        self.box_width = width
+        self.items = items
+        self.primary_count = len(items) if primary_count is None else primary_count
+        self.bg_color = bg_color
+        self.padding = 12
+        self.card_height = 74
+        self.gap = 10
+        self._height = None
+        self._text_height = None
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        style = ParagraphStyle(
+            "callout_signals_measure",
+            fontName="Helvetica-Bold",
+            fontSize=11,
+            leading=15,
+            textColor=white,
+        )
+        p = Paragraph(self.text, style)
+        _, self._text_height = p.wrap(self.box_width - 2 * self.padding, availHeight)
+        self._height = self._text_height + self.card_height + self.gap + 2 * self.padding
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = self.padding
+
+        c.setFillColor(self.bg_color)
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        style = ParagraphStyle(
+            "callout_signals_draw",
+            fontName="Helvetica-Bold",
+            fontSize=11,
+            leading=15,
+            textColor=white,
+        )
+        p = Paragraph(self.text, style)
+        p.wrap(w - 2 * pad, self._text_height)
+        p.drawOn(c, pad, h - pad - self._text_height)
+
+        card_x = pad
+        card_y = pad
+        card_w = w - 2 * pad
+        card_h = self.card_height
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.roundRect(card_x, card_y, card_w, card_h, 3, fill=1, stroke=0)
+
+        inner_pad = 12
+        col_w = (card_w - 2 * inner_pad) / len(self.items)
+        value_y = card_y + 41
+        label_top_y = card_y + 27
+        for i, (value, label) in enumerate(self.items):
+            x = card_x + inner_pad + i * col_w
+            cx = x + col_w / 2
+            if i:
+                c.setStrokeColor(DEWR_LIGHT_GREY)
+                c.setLineWidth(0.5)
+                c.line(x, card_y + 11, x, card_y + card_h - 11)
+            c.setFillColor(DEWR_GREEN if i < self.primary_count else DEWR_DARK_GREY)
+            value_size = 22 if len(value) <= 8 else 17
+            c.setFont("Helvetica-Bold", value_size)
+            c.drawCentredString(cx, value_y, value)
+            label_p = Paragraph(label, ParagraphStyle(
+                "callout_signal_label",
+                fontName="Helvetica",
+                fontSize=7.4,
+                leading=8.2,
+                alignment=TA_CENTER,
+                textColor=DEWR_DARK_GREY,
+            ))
+            _, label_h = label_p.wrap(col_w - 14, 28)
+            label_p.drawOn(c, x + 7, label_top_y - label_h)
+
+
+class TimeSavingsPanel(Flowable):
+    """Hero comparison panel for reported Copilot time savings."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 104
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        label_w = w * 0.28
+        bar_x = pad + label_w
+        bar_w = w - bar_x - 98
+        bar_h = 11
+        max_value = 75
+        rows = [
+            ("M365 Copilot", 69, "5.7 hours/week", DEWR_DARK_GREEN),
+            ("Copilot Chat/basic", 34, "2.8 hours/week", DEWR_DARK_GREY),
+        ]
+        for i, (label, value, weekly, color) in enumerate(rows):
+            y = h - 41 - i * 31
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont("Helvetica-Bold", 8.4)
+            c.drawString(pad, y + 1, label)
+            c.setFillColor(DEWR_GREY)
+            c.setFont("Helvetica", 7.3)
+            c.drawString(pad, y - 12, weekly)
+
+            c.setFillColor(HexColor("#E3E5E6"))
+            c.rect(bar_x, y, bar_w, bar_h, fill=1, stroke=0)
+            c.setFillColor(color)
+            c.rect(bar_x, y, bar_w * (value / max_value), bar_h, fill=1, stroke=0)
+            c.setFillColor(DEWR_NAVY)
+            c.setFont("Helvetica-Bold", 12)
+            c.drawRightString(w - pad, y - 1, f"{value} min/day")
+
+
+class CopilotEngagementDeltaPanel(Flowable):
+    """Engagement comparison by Copilot access type."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self.rows = [
+            ("Rated very/extremely useful", "67%", "37%"),
+            ("Used at least weekly", "80%", "56%"),
+            ("Used daily or most of day", "63%", "27%"),
+        ]
+        self._height = 122
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        first_w = w * 0.56
+        col_w = (w - first_w - pad) / 2
+        head_y = h - 22
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.2)
+        c.drawString(pad, head_y, "MEASURE")
+        for i, col in enumerate(["M365", "CHAT/BASIC"]):
+            c.drawCentredString(first_w + i * col_w + col_w / 2, head_y, col)
+
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(pad, h - 36, w - pad, h - 36)
+
+        row_h = 27
+        for r_idx, (label, m365, chat) in enumerate(self.rows):
+            y = h - 58 - r_idx * row_h
+            if r_idx:
+                c.setStrokeColor(DEWR_LIGHT_GREY)
+                c.line(pad, y + 16, w - pad, y + 16)
+
+            c.setFillColor(DEWR_NAVY)
+            c.setFont("Helvetica-Bold", 8.1)
+            c.drawString(pad, y, label)
+
+            values = [m365, chat]
+            for i, value in enumerate(values):
+                c.setFillColor(DEWR_DARK_GREEN if i == 0 else DEWR_NAVY)
+                c.setFont("Helvetica-Bold", 12)
+                c.drawCentredString(first_w + i * col_w + col_w / 2, y, value)
+
+
+class EvidenceMatrixPanel(Flowable):
+    """Compact grey matrix for comparing metrics across groups or tools."""
+    def __init__(self, width, title, columns, rows, first_col_ratio=0.42):
+        Flowable.__init__(self)
+        self.box_width = width
+        self.title = title
+        self.columns = columns
+        self.rows = rows
+        self.first_col_ratio = first_col_ratio
+        self.row_h = 26
+        self._height = 44 + self.row_h * len(rows)
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        first_w = w * self.first_col_ratio
+        data_w = w - first_w - pad
+        col_w = data_w / len(self.columns)
+        head_y = h - 22
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.2)
+        c.drawString(pad, head_y, self.title)
+        for i, col in enumerate(self.columns):
+            c.drawCentredString(first_w + i * col_w + col_w / 2, head_y, col.upper())
+
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(0, h - 36, w, h - 36)
+
+        for r_idx, row in enumerate(self.rows):
+            label, values, highlight_idx = row
+            y = h - 57 - r_idx * self.row_h
+            if r_idx:
+                c.setStrokeColor(DEWR_LIGHT_GREY)
+                c.line(0, y + 16, w, y + 16)
+
+            p = Paragraph(label, ParagraphStyle(
+                "matrix_label",
+                fontName="Helvetica-Bold",
+                fontSize=8.0,
+                leading=9.5,
+                textColor=DEWR_NAVY,
+            ))
+            p.wrap(first_w - pad - 4, 18)
+            p.drawOn(c, pad, y - 3)
+
+            c.setFont("Helvetica-Bold", 11.5)
+            for i, value in enumerate(values):
+                highlighted = (
+                    highlight_idx == "all"
+                    or (isinstance(highlight_idx, (list, tuple, set)) and i in highlight_idx)
+                    or i == highlight_idx
+                )
+                c.setFillColor(DEWR_DARK_GREEN if highlighted else DEWR_NAVY)
+                c.drawCentredString(first_w + i * col_w + col_w / 2, y, value)
+
+
+class MarginalValuePanel(Flowable):
+    """Compact two-part panel for public-tool marginal value signals."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 126
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(pad, h / 2, w - pad, h / 2)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(pad, h - 20, "ACCESS EFFECT")
+        c.drawString(pad, h / 2 - 17, "TOOL EFFECT")
+
+        metric_x = pad
+        chat_x = w * 0.55
+        m365_x = w * 0.78
+
+        c.setFont("Helvetica-Bold", 7.0)
+        c.drawCentredString(chat_x, h - 20, "CHAT/BASIC")
+        c.drawCentredString(m365_x, h - 20, "M365 COPILOT")
+
+        for y, metric, chat_value, m365_value, highlight_idx in [
+            (h - 43, "Added value beyond Copilot", "79%", "63%", 0),
+            (h - 61, "Used weekly+", "53%", "52%", None),
+        ]:
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont("Helvetica", 7.8)
+            c.drawString(metric_x, y, metric)
+            c.setFont("Helvetica-Bold", 12)
+            c.setFillColor(DEWR_DARK_GREEN if highlight_idx == 0 else DEWR_NAVY)
+            c.drawCentredString(chat_x, y, chat_value)
+            c.setFillColor(DEWR_DARK_GREEN if highlight_idx == 1 else DEWR_NAVY)
+            c.drawCentredString(m365_x, y, m365_value)
+
+        c.setFont("Helvetica-Bold", 7.0)
+        c.setFillColor(DEWR_DARK_GREY)
+        c.drawCentredString(chat_x, h / 2 - 17, "CHAT/BASIC")
+        c.drawCentredString(m365_x, h / 2 - 17, "M365 COPILOT")
+
+        c.setFont("Helvetica", 7.8)
+        c.drawString(metric_x, h / 2 - 40, "Strongest tool signal")
+        c.setFont("Helvetica-Bold", 15)
+        c.setFillColor(DEWR_DARK_GREEN)
+        c.drawCentredString(chat_x, h / 2 - 41, "47%")
+        c.drawCentredString(m365_x, h / 2 - 41, "44%")
+        c.setFont("Helvetica", 7.4)
+        c.setFillColor(DEWR_DARK_GREY)
+        c.drawCentredString(chat_x, h / 2 - 56, "ChatGPT")
+        c.drawCentredString(m365_x, h / 2 - 56, "Claude")
+
+
+class TwoEvidenceCardsPanel(Flowable):
+    """Two concise proof-point cards for paired executive evidence."""
+    def __init__(self, width, cards):
+        Flowable.__init__(self)
+        self.box_width = width
+        self.cards = cards
+        self._height = 112
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        gap = 10
+        card_w = (w - gap) / 2
+
+        label_style = ParagraphStyle(
+            "evidence_card_label",
+            fontName="Helvetica",
+            fontSize=8.2,
+            leading=9.4,
+            textColor=DEWR_DARK_GREY,
+            alignment=TA_CENTER,
+        )
+        vs_style = ParagraphStyle(
+            "evidence_card_vs",
+            fontName="Helvetica-Bold",
+            fontSize=8.2,
+            leading=9.3,
+            textColor=DEWR_DARK_GREY,
+            alignment=TA_CENTER,
+        )
+
+        for idx, card in enumerate(self.cards):
+            x = idx * (card_w + gap)
+            c.setFillColor(HexColor("#F7F8FA"))
+            c.rect(x, 0, card_w, h, fill=1, stroke=0)
+
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont("Helvetica-Bold", 7.2)
+            c.drawCentredString(x + card_w / 2, h - 21, card["metric"].upper())
+            c.setStrokeColor(DEWR_LIGHT_GREY)
+            c.setLineWidth(0.5)
+            c.line(x + 16, h - 34, x + card_w - 16, h - 34)
+
+            c.setFillColor(DEWR_DARK_GREEN)
+            c.setFont("Helvetica-Bold", 24)
+            c.drawCentredString(x + card_w / 2, h - 63, card["value"])
+
+            label = Paragraph(card["label"], label_style)
+            label.wrap(card_w - 34, 24)
+            label.drawOn(c, x + 17, h - 88)
+
+            vs = Paragraph(card["comparison"], vs_style)
+            vs.wrap(card_w - 34, 18)
+            vs.drawOn(c, x + 17, 9)
+
+
+class HorizontalBarPanel(Flowable):
+    """Full-width grey panel with labelled horizontal bars."""
+    def __init__(self, width, title, items, max_value=100, primary_count=0, value_suffix="%", row_h=19):
+        Flowable.__init__(self)
+        self.box_width = width
+        self.title = title
+        self.items = items
+        self.max_value = max_value
+        self.primary_count = primary_count
+        self.value_suffix = value_suffix
+        self.row_h = row_h
+        self._height = 46 + self.row_h * len(items)
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(pad, h - 22, self.title)
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(pad, h - 36, w - pad, h - 36)
+
+        label_w = w * 0.47
+        bar_x = pad + label_w
+        bar_w = w - bar_x - 44
+        bar_h = 6 if self.row_h < 18 else 7
+
+        for i, (label, value) in enumerate(self.items):
+            y = h - 55 - i * self.row_h
+            c.setFillColor(DEWR_NAVY)
+            c.setFont("Helvetica", 7.6)
+            p = Paragraph(label, ParagraphStyle(
+                "bar_label",
+                fontName="Helvetica",
+                fontSize=7.6,
+                leading=8.5,
+                textColor=DEWR_NAVY,
+            ))
+            p.wrap(label_w - 8, 16)
+            p.drawOn(c, pad, y - 3)
+
+            c.setFillColor(HexColor("#E3E5E6"))
+            c.rect(bar_x, y, bar_w, bar_h, fill=1, stroke=0)
+            c.setFillColor(DEWR_DARK_GREEN if i < self.primary_count else DEWR_DARK_GREY)
+            c.rect(bar_x, y, bar_w * (value / self.max_value), bar_h, fill=1, stroke=0)
+            c.setFillColor(DEWR_NAVY)
+            c.setFont("Helvetica-Bold", 8.0)
+            c.drawRightString(w - pad, y - 1, f"{value:g}{self.value_suffix}")
+
+
+class SafeguardPrioritiesPanel(Flowable):
+    """Three-column safeguard framework panel."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 138
+        self.items = [
+            ("Information classification boundaries", "Users described uncertainty about what information was appropriate to enter."),
+            ("Output validation", "Users pointed to the need to check outputs before relying on them."),
+            ("APS-specific sensitivity and safeguards", "Some responses highlighted differences between public tools and Copilot safeguards."),
+        ]
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(pad, h - 22, "PRACTICAL JUDGEMENT BOUNDARIES")
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(pad, h - 36, w - pad, h - 36)
+
+        col_w = (w - 2 * pad) / 3
+        for i, (title, text) in enumerate(self.items):
+            x = pad + i * col_w
+            if i:
+                c.setStrokeColor(DEWR_LIGHT_GREY)
+                c.line(x, 18, x, h - 46)
+
+            title_p = Paragraph(title, ParagraphStyle(
+                "safeguard_title",
+                fontName="Helvetica-Bold",
+                fontSize=8.6,
+                leading=10.2,
+                textColor=DEWR_DARK_GREY,
+            ))
+            title_p.wrap(col_w - 22, 28)
+            title_p.drawOn(c, x + 10, h - 72)
+            p = Paragraph(text, ParagraphStyle(
+                "safeguard_text",
+                fontName="Helvetica",
+                fontSize=8.0,
+                leading=10,
+                textColor=DEWR_DARK_GREY,
+            ))
+            p.wrap(col_w - 22, 42)
+            p.drawOn(c, x + 10, h - 116)
+
+
+class SafeguardModelPanel(Flowable):
+    """Four-part safeguard model for future rollout."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 126
+        self.items = [
+            ("Guide", "Clear rules and examples for what can be entered."),
+            ("Remind", "Point-of-use splash screens to reinforce boundaries."),
+            ("Block", "DLP upload controls as a technical backstop."),
+            ("Assure", "Logs and monitoring to verify control performance."),
+        ]
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(pad, h - 22, "SAFEGUARD OPERATING MODEL")
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(pad, h - 36, w - pad, h - 36)
+
+        col_w = (w - 2 * pad) / 4
+        for i, (title, text) in enumerate(self.items):
+            x = pad + i * col_w
+            if i:
+                c.setStrokeColor(DEWR_LIGHT_GREY)
+                c.line(x, 18, x, h - 46)
+
+            c.setFillColor(DEWR_DARK_GREEN if i < 2 else DEWR_DARK_GREY)
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(x + 9, h - 60, title)
+            p = Paragraph(text, ParagraphStyle(
+                "safeguard_model_text",
+                fontName="Helvetica",
+                fontSize=7.6,
+                leading=9.2,
+                textColor=DEWR_DARK_GREY,
+            ))
+            p.wrap(col_w - 20, 42)
+            p.drawOn(c, x + 9, h - 102)
+
+
+class ConcernClusterMap(Flowable):
+    """Two-cluster map for open-text concern themes."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 158
+        self.clusters = [
+            ("COMMON PRACTICAL CONCERNS", [
+                (3, "Tool access, integration and cost (17 mentions)"),
+                (2, "Data privacy, confidentiality and public-tool data use (13)"),
+                (1, "Accuracy, hallucination and validation (8)"),
+            ]),
+            ("BROADER TRUST AND IMPACT CONCERNS", [
+                (1, "Environmental impact (5 mentions)"),
+                (1, "Workforce, capability and civic reliance (4)"),
+                (1, "Other: bias, ethics, governance (2)"),
+            ]),
+        ]
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+        cluster_gap = 20
+        cluster_w = (w - 2 * pad - cluster_gap) / 2
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        for cluster_idx, (title, rows) in enumerate(self.clusters):
+            x = pad + cluster_idx * (cluster_w + cluster_gap)
+            if cluster_idx:
+                c.setStrokeColor(DEWR_LIGHT_GREY)
+                c.setLineWidth(0.5)
+                c.line(x - cluster_gap / 2, 18, x - cluster_gap / 2, h - 18)
+
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont("Helvetica-Bold", 7.2)
+            c.drawString(x, h - 24, title)
+            c.setStrokeColor(DEWR_LIGHT_GREY)
+            c.line(x, h - 38, x + cluster_w, h - 38)
+
+            row_y = h - 62
+            for row_idx, (dot_count, label) in enumerate(rows):
+                y = row_y - row_idx * 28
+                for dot_idx in range(3):
+                    c.setFillColor(DEWR_DARK_GREEN if dot_idx < dot_count and cluster_idx == 0 else
+                                   DEWR_DARK_GREY if dot_idx < dot_count else HexColor("#E3E5E6"))
+                    c.circle(x + 6 + dot_idx * 10, y + 4, 2.7, fill=1, stroke=0)
+                p = Paragraph(label, ParagraphStyle(
+                    "concern_cluster_label",
+                    fontName="Helvetica",
+                    fontSize=7.6,
+                    leading=9.0,
+                    textColor=DEWR_NAVY,
+                ))
+                p.wrap(cluster_w - 40, 24)
+                p.drawOn(c, x + 38, y - 1)
+
+
+class GroupedBarChart(Flowable):
+    """Horizontal grouped bar chart with left-aligned category labels,
+    section headers to group categories, a legend, and direct value labels.
+    Follows OCE viz guidelines."""
+    def __init__(self, title, subtitle, sections, series_a_label,
+                 series_b_label, width, source_text="",
+                 series_a_color=DEWR_GREEN, series_b_color=DEWR_DARK_GREY,
+                 max_value=100):
+        """sections is a list of (section_title, [(cat, a_val, b_val), ...])"""
+        Flowable.__init__(self)
+        self.title = title
+        self.subtitle = subtitle
+        self.sections = sections
+        self.a_label = series_a_label
+        self.b_label = series_b_label
+        self.box_width = width
+        self.source_text = source_text
+        self.a_color = series_a_color
+        self.b_color = series_b_color
+        self.max_value = max_value
+
+        self.bar_h = 16
+        self.bar_gap = 4
+        self.group_gap = 18
+        self.section_gap = 14
+        self.label_w = 165
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        per_group = (self.bar_h * 2) + self.bar_gap + self.group_gap
+        body_h = 0
+        for sec_title, cats in self.sections:
+            body_h += 22       # section header + spacing
+            body_h += per_group * len(cats)
+            body_h += self.section_gap
+        # title(18) + subtitle(16) + legend(38) + gap(10) + body + source(20)
+        self._height = 18 + 16 + 38 + 10 + body_h + 20
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+
+        # Title
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 11.5)
+        c.drawString(0, h - 14, self.title)
+        # Subtitle
+        c.setFont("Helvetica", 9.5)
+        c.setFillColor(DEWR_GREY)
+        c.drawString(0, h - 32, self.subtitle)
+
+        # Legend (right-aligned, below subtitle)
+        leg_y = h - 18 - 16 - 6
+        # measure label widths to right-align cleanly
+        c.setFont("Helvetica", 9)
+        a_text_w = c.stringWidth(self.a_label, "Helvetica", 9)
+        b_text_w = c.stringWidth(self.b_label, "Helvetica", 9)
+        max_text_w = max(a_text_w, b_text_w)
+        leg_block_w = 14 + max_text_w
+        leg_x = w - leg_block_w
+
+        c.setFillColor(self.a_color)
+        c.rect(leg_x, leg_y, 11, 11, fill=1, stroke=0)
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica", 9)
+        c.drawString(leg_x + 16, leg_y + 2, self.a_label)
+        leg_y -= 16
+        c.setFillColor(self.b_color)
+        c.rect(leg_x, leg_y, 11, 11, fill=1, stroke=0)
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica", 9)
+        c.drawString(leg_x + 16, leg_y + 2, self.b_label)
+
+        # Bar area
+        bar_area_x = self.label_w
+        bar_area_w = w - self.label_w - 40
+        cur_y = h - 18 - 16 - 38 - 10
+
+        # Bottom of all bars (for baseline)
+        baseline_top = cur_y
+        baseline_bottom = 20  # leave room for source
+
+        for sec_idx, (sec_title, cats) in enumerate(self.sections):
+            # Section header (with divider above)
+            if sec_idx > 0:
+                # spacer already added, draw divider
+                pass
+            c.setStrokeColor(DEWR_LIGHT_GREY)
+            c.setLineWidth(0.5)
+            c.line(0, cur_y, w, cur_y)
+            cur_y -= 4
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont("Helvetica-Bold", 9.5)
+            c.drawString(0, cur_y - 11, sec_title)
+            cur_y -= 18
+
+            for cat, a_val, b_val in cats:
+                bar_top = cur_y
+
+                # Series A bar
+                a_w = bar_area_w * (a_val / self.max_value)
+                c.setFillColor(self.a_color)
+                c.rect(bar_area_x, cur_y - self.bar_h, a_w, self.bar_h,
+                       fill=1, stroke=0)
+                c.setFillColor(DEWR_DARK_GREY)
+                c.setFont("Helvetica-Bold", 9)
+                c.drawString(bar_area_x + a_w + 6, cur_y - self.bar_h + 4,
+                             f"{a_val}%")
+                cur_y -= self.bar_h + self.bar_gap
+
+                # Series B bar
+                b_w = bar_area_w * (b_val / self.max_value)
+                c.setFillColor(self.b_color)
+                c.rect(bar_area_x, cur_y - self.bar_h, b_w, self.bar_h,
+                       fill=1, stroke=0)
+                c.setFillColor(DEWR_DARK_GREY)
+                c.setFont("Helvetica-Bold", 9)
+                c.drawString(bar_area_x + b_w + 6, cur_y - self.bar_h + 4,
+                             f"{b_val}%")
+
+                # Category label (vertically centred between the two bars)
+                label_mid_y = bar_top - self.bar_h - (self.bar_gap / 2)
+                c.setFillColor(DEWR_DARK_GREY)
+                c.setFont("Helvetica", 9.5)
+                words = cat.split()
+                lines = []
+                current_line = ""
+                for word in words:
+                    test = (current_line + " " + word).strip()
+                    if c.stringWidth(test, "Helvetica", 9.5) <= self.label_w - 12:
+                        current_line = test
+                    else:
+                        if current_line:
+                            lines.append(current_line)
+                        current_line = word
+                if current_line:
+                    lines.append(current_line)
+                total_text_h = len(lines) * 12
+                label_start_y = label_mid_y + total_text_h / 2 - 4
+                for li, line in enumerate(lines):
+                    c.drawRightString(self.label_w - 12, label_start_y - li * 12, line)
+
+                cur_y -= self.bar_h + self.group_gap
+
+            # remove trailing group_gap, add section_gap
+            cur_y += self.group_gap - self.section_gap
+
+        baseline_bottom_actual = cur_y
+
+        # Subtle baseline at 0% (vertical anchor)
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(bar_area_x, baseline_top - 2, bar_area_x, baseline_bottom_actual + self.section_gap)
+
+        # Source
+        if self.source_text:
+            c.setFillColor(DEWR_GREY)
+            c.setFont("Helvetica-Oblique", 8)
+            c.drawString(0, 4, self.source_text)
+
+
+class TaskFootprintExhibit(Flowable):
+    """Full task-footprint dumbbell with the largest access-type gaps highlighted."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 230
+        # Non-highlighted values are estimated from the source chart provided
+        # by the user. Highlighted values are text-confirmed in the source notes.
+        self.rows = [
+            ("Summarising", 86, 76, False),
+            ("Editing and revision", 72, 66, False),
+            ("Drafting", 71, 61, False),
+            ("Research, problem solving or generating ideas", 67, 44, True),
+            ("General administrative tasks", 47, 38, False),
+            ("Planning or meeting preparation", 33, 15, True),
+            ("Coding or data work", 24, 20, False),
+        ]
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+        label_w = w * 0.40
+        axis_x = pad + label_w
+        axis_w = w - axis_x - 58
+        top_y = h - 60
+        row_gap = 23
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(pad, h - 22, "SHARE OF RESPONDENTS REPORTING USE BY TASK TYPE")
+        c.setFont("Helvetica", 7.4)
+        m365_label = "M365 Copilot"
+        chat_label = "Chat/basic"
+        marker_gap = 8
+        item_gap = 18
+        m365_w = c.stringWidth(m365_label, "Helvetica", 7.4)
+        chat_w = c.stringWidth(chat_label, "Helvetica", 7.4)
+        legend_w = 6 + marker_gap + m365_w + item_gap + 6 + marker_gap + chat_w
+        legend_x = w - pad - legend_w
+        c.setFillColor(DEWR_DARK_GREEN)
+        c.circle(legend_x, h - 20, 3.0, fill=1, stroke=0)
+        c.setFillColor(DEWR_DARK_GREY)
+        c.drawString(legend_x + marker_gap, h - 23, m365_label)
+        chat_marker_x = legend_x + marker_gap + m365_w + item_gap
+        c.setFillColor(DEWR_DARK_GREY)
+        c.circle(chat_marker_x, h - 20, 3.0, fill=1, stroke=0)
+        c.drawString(chat_marker_x + marker_gap, h - 23, chat_label)
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.line(pad, h - 36, w - pad, h - 36)
+
+        c.setFont("Helvetica", 7.2)
+        c.setFillColor(DEWR_GREY)
+        for tick, label in [(0, "0%"), (25, "25%"), (50, "50%"), (75, "75%"), (100, "100%")]:
+            x = axis_x + axis_w * (tick / 100)
+            c.setStrokeColor(DEWR_LIGHT_GREY)
+            c.setLineWidth(0.35)
+            c.line(x, top_y + 9, x, top_y - row_gap * (len(self.rows) - 1) - 8)
+            c.drawCentredString(x, h - 48, label)
+
+        for i, (label, m365, chat, highlight) in enumerate(self.rows):
+            y = top_y - i * row_gap
+            p = Paragraph(label, ParagraphStyle(
+                "full_task_dumbbell_label",
+                fontName="Helvetica-Bold" if highlight else "Helvetica",
+                fontSize=7.6,
+                leading=8.6,
+                textColor=DEWR_DARK_GREY,
+            ))
+            p.wrap(label_w - 8, 20)
+            p.drawOn(c, pad, y - 7)
+
+            chat_x = axis_x + axis_w * (chat / 100)
+            m365_x = axis_x + axis_w * (m365 / 100)
+            line_color = DEWR_DARK_GREEN if highlight else DEWR_GREY
+            m365_color = DEWR_DARK_GREEN if highlight else DEWR_GREY
+            chat_color = DEWR_DARK_GREY if highlight else DEWR_GREY
+
+            c.setStrokeColor(line_color)
+            c.setLineWidth(1.1 if highlight else 0.7)
+            c.line(chat_x, y, m365_x, y)
+            c.setFillColor(chat_color)
+            c.circle(chat_x, y, 3.1, fill=1, stroke=0)
+            c.setFillColor(m365_color)
+            c.circle(m365_x, y, 3.6 if highlight else 3.1, fill=1, stroke=0)
+
+            if highlight:
+                c.setFont("Helvetica-Bold", 7.4)
+                c.setFillColor(DEWR_DARK_GREY)
+                c.drawRightString(chat_x - 5, y - 3, f"{chat}%")
+                c.setFillColor(DEWR_DARK_GREEN)
+                c.drawString(m365_x + 5, y - 3, f"{m365}%")
+
+
+class KeyFindingBar(Flowable):
+    """A left-bordered key finding highlight."""
+    def __init__(self, text, width, border_color=DEWR_GREEN, bg_color=None):
+        Flowable.__init__(self)
+        self.text = text
+        self.box_width = width
+        self.border_color = border_color
+        self.bg_color = bg_color or HexColor("#EFF4E8")
+        self._height = None
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        style = ParagraphStyle('kf_measure', fontName='Helvetica-Bold',
+                               fontSize=10.5, leading=14,
+                               textColor=DEWR_DARK_GREY)
+        p = Paragraph(self.text, style)
+        w, h = p.wrap(self.box_width - 24, availHeight)
+        self._height = h + 20
+        return self.box_width, self._height
+
+    def draw(self):
+        self.canv.setFillColor(self.bg_color)
+        self.canv.rect(0, 0, self.box_width, self._height, fill=1, stroke=0)
+        self.canv.setFillColor(self.border_color)
+        self.canv.rect(0, 0, 4, self._height, fill=1, stroke=0)
+        style = ParagraphStyle('kf_draw', fontName='Helvetica-Bold',
+                               fontSize=10.5, leading=14,
+                               textColor=DEWR_DARK_GREY)
+        p = Paragraph(self.text, style)
+        p.wrap(self.box_width - 24, self._height)
+        p.drawOn(self.canv, 16, 10)
+
+
+def header_footer(canvas, doc):
+    canvas.saveState()
+    # Header line
+    canvas.setStrokeColor(DEWR_NAVY)
+    canvas.setLineWidth(2)
+    canvas.line(doc.leftMargin, A4[1] - 20*mm, A4[0] - doc.rightMargin, A4[1] - 20*mm)
+
+    # Header text
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(DEWR_DARK_GREY)
+    canvas.drawString(doc.leftMargin, A4[1] - 18*mm,
+                      "Evaluation of the Public Generative AI Trial")
+
+    # Footer
+    canvas.setStrokeColor(DEWR_LIGHT_GREY)
+    canvas.setLineWidth(0.5)
+    canvas.line(doc.leftMargin, 18*mm, A4[0] - doc.rightMargin, 18*mm)
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(DEWR_DARK_GREY)
+    canvas.drawString(doc.leftMargin, 13*mm,
+                      "Department of Employment and Workplace Relations")
+    canvas.drawRightString(A4[0] - doc.rightMargin, 13*mm,
+                           f"Page {doc.page}")
+    canvas.restoreState()
+
+
+def build_report():
+    doc = SimpleDocTemplate(
+        OUTPUT_PATH,
+        pagesize=A4,
+        leftMargin=25*mm,
+        rightMargin=25*mm,
+        topMargin=28*mm,
+        bottomMargin=25*mm,
+    )
+
+    width = A4[0] - doc.leftMargin - doc.rightMargin
+    story = []
+
+    # --- Styles ---
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle('Title', fontName='Helvetica-Bold',
+                                  fontSize=26, leading=32, textColor=DEWR_NAVY,
+                                  spaceAfter=6)
+    subtitle_style = ParagraphStyle('Subtitle', fontName='Helvetica',
+                                     fontSize=14, leading=18, textColor=DEWR_DARK_GREY,
+                                     spaceAfter=20)
+    h1 = ParagraphStyle('H1', fontName='Helvetica-Bold', fontSize=18,
+                         leading=24, textColor=DEWR_NAVY, spaceBefore=16, spaceAfter=10)
+    h2 = ParagraphStyle('H2', fontName='Helvetica-Bold', fontSize=14,
+                         leading=18, textColor=DEWR_NAVY, spaceBefore=14, spaceAfter=8)
+    h3 = ParagraphStyle('H3', fontName='Helvetica-Bold', fontSize=11.5,
+                         leading=15, textColor=DEWR_DARK_GREY, spaceBefore=10, spaceAfter=6)
+    body = ParagraphStyle('Body', fontName='Helvetica', fontSize=10,
+                           leading=14, textColor=DEWR_DARK_GREY, spaceAfter=8,
+                           alignment=TA_JUSTIFY)
+    body_bold = ParagraphStyle('BodyBold', fontName='Helvetica-Bold', fontSize=10,
+                                leading=14, textColor=DEWR_DARK_GREY, spaceAfter=8)
+    bullet_style = ParagraphStyle('Bullet', fontName='Helvetica', fontSize=10,
+                                   leading=14, textColor=DEWR_DARK_GREY,
+                                   leftIndent=18, spaceAfter=4,
+                                   bulletIndent=6, bulletFontName='Helvetica',
+                                   bulletFontSize=10)
+    quote_style = ParagraphStyle('Quote', fontName='Helvetica-Oblique', fontSize=9.5,
+                                  leading=13, textColor=DEWR_GREY,
+                                  leftIndent=20, rightIndent=20, spaceAfter=8,
+                                  borderPadding=6)
+    note_style = ParagraphStyle('Note', fontName='Helvetica-Oblique', fontSize=8.5,
+                                 leading=11, textColor=DEWR_GREY, spaceAfter=6)
+    chart_title = ParagraphStyle('ChartTitle', fontName='Helvetica-Bold', fontSize=10.5,
+                                  leading=13, textColor=DEWR_DARK_GREY,
+                                  spaceBefore=4, spaceAfter=4)
+    s1_h2 = ParagraphStyle('S1H2', parent=h2, spaceBefore=14, spaceAfter=10)
+    s1_h3 = ParagraphStyle('S1H3', parent=h3, spaceBefore=0, spaceAfter=6)
+    s1_body = ParagraphStyle('S1Body', parent=body, spaceAfter=0)
+
+    def bullet(text):
+        return Paragraph(f"<bullet>&bull;</bullet> {text}", bullet_style)
+
+    def callout(text, color=DEWR_DARK_GREEN):
+        return CalloutBox(text, width, bg_color=color)
+
+    def key_finding(text, color=DEWR_GREEN):
+        return KeyFindingBar(text, width, border_color=color)
+
+    def visual_title(text):
+        return Paragraph(text, chart_title)
+
+    def source_note(text):
+        return Paragraph(f"<i>{text}</i>", note_style)
+
+    def sp(h=6):
+        return Spacer(1, h)
+
+    # ==============================
+    # COVER PAGE
+    # ==============================
+    story.append(Spacer(1, 60*mm))
+    story.append(HRFlowable(width="100%", thickness=3, color=DEWR_NAVY))
+    story.append(sp(6))
+    story.append(Paragraph("Evaluation of the Public<br/>Generative AI Trial", title_style))
+    story.append(Paragraph("Summary of evaluation findings", subtitle_style))
+    story.append(sp(6))
+    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
+    story.append(sp(12))
+    story.append(Paragraph("Department of Employment and Workplace Relations", ParagraphStyle(
+        'CoverDept', fontName='Helvetica', fontSize=11, leading=14, textColor=DEWR_DARK_GREY)))
+    story.append(sp(6))
+    story.append(Paragraph("May 2026", ParagraphStyle(
+        'CoverDate', fontName='Helvetica', fontSize=10, leading=12, textColor=DEWR_GREY)))
+    story.append(PageBreak())
+
+    # ==============================
+    # TABLE OF CONTENTS
+    # ==============================
+    story.append(Paragraph("Contents", h1))
+    story.append(sp(4))
+    toc_items = [
+        ("Executive summary", "3"),
+        ("    Preface", "3"),
+        ("    Overarching findings", "4"),
+        ("    Recommendations", "5"),
+        ("Evaluation findings", "6"),
+        ("    1. Copilot productivity baseline", "6"),
+        ("    2. Public Gen AI uptake, use and productivity", "8"),
+        ("    3. Concerns, risks and safeguards", "11"),
+        ("Approach and methodology", "15"),
+        ("Appendix", "16"),
+    ]
+    toc_style = ParagraphStyle('TOC', fontName='Helvetica', fontSize=10,
+                                leading=18, textColor=DEWR_DARK_GREY)
+    toc_bold = ParagraphStyle('TOCBold', fontName='Helvetica-Bold', fontSize=10,
+                               leading=18, textColor=DEWR_NAVY)
+    for item, pg in toc_items:
+        is_main = not item.startswith("    ")
+        s = toc_bold if is_main else toc_style
+        display = item.strip()
+        dots = '.' * max(3, (80 - len(display)))
+        story.append(Paragraph(f"{display} {'.' * 3}<spacer length='flexible'/>{pg}", s))
+    story.append(PageBreak())
+
+    # ==============================
+    # EXECUTIVE SUMMARY
+    # ==============================
+    story.append(Paragraph("Executive summary", h1))
+    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
+    story.append(sp(4))
+
+    # Preface
+    story.append(Paragraph("Preface", h2))
+    story.append(Paragraph(
+        "DEWR currently provides all employees with access to Generative AI. All employees can access "
+        "the free Microsoft Copilot Chat and just under 10% can access the paid M365 Copilot with "
+        "greater integration capability. In March 2026, nearly 80% of all staff used one of these tools, "
+        "entering over 250,000 prompts, or about 4 prompts per person every workday.",
+        body))
+    story.append(Paragraph(
+        "In January 2026, DEWR ran a trial in which 5% of employees were provided access to Public "
+        "Generative AI tools, in addition to their existing Copilot access. The trial cohort was selected "
+        "at random and stratified to ensure representation across Groups, Copilot access types, and "
+        "APS levels. The tools were the free versions of OpenAI’s ChatGPT, Google’s Gemini, and "
+        "Anthropic’s Claude, accessed via web browsers. Staff were provided with technical and "
+        "governance instruction, including on what could be uploaded (unclassified information only). "
+        "Technical protections were established to reduce the likelihood of classified material being "
+        "uploaded to the tools.",
+        body))
+    story.append(Paragraph(
+        "At the conclusion of the trial period, all participants were invited to complete a voluntary "
+        "survey about their experience. A total of 104 staff completed the survey, representing an "
+        "approximate 52% response rate. Respondents were evenly split by classification, with 52 APS "
+        "staff (50%) and 52 Executive Level staff (50%), drawn from all five departmental groups.",
+        body))
+    story.append(sp(4))
+
+    # Assessment areas
+    story.append(Paragraph("The trial was intended to assess:", body_bold))
+    story.append(bullet("The current productivity of Copilot (both versions)"))
+    story.append(bullet("Whether Public Gen AI tools provided additional value beyond Copilot"))
+    story.append(bullet("The relative utility of each of the selected Public Gen AI tools"))
+    story.append(bullet("The potential productivity benefits from the Public Gen AI tools"))
+    story.append(bullet("The degree of concern staff have when using the tools"))
+    story.append(sp(4))
+
+    # Overarching findings
+    story.append(Paragraph("Overarching findings", h2))
+    story.append(callout(
+        "Public Gen AI tools delivered clear productivity benefits for many users, "
+        "but value was not uniform. Copilot already provides meaningful time savings, "
+        "and public tools offered additional value, particularly for users with lower Copilot access."))
+    story.append(sp(10))
+
+    # Stat boxes row
+    stat_data = [
+        ("69 min/day", "M365 daily saving", DEWR_NAVY),
+        ("34 min/day", "Chat/basic daily saving", DEWR_BLUE),
+        ("80%", "Rated tool useful", DEWR_GREEN),
+        ("72%", "Continued access", DEWR_DARK_GREEN),
+    ]
+    stat_width = (width - 18) / 4
+    stat_boxes = []
+    for stat, label, color in stat_data:
+        stat_boxes.append(StatBox(stat, label, stat_width, color))
+
+    stat_table = Table([[s for s in stat_boxes]], colWidths=[stat_width]*4)
+    stat_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 2),
+        ('RIGHTPADDING', (0,0), (-1,-1), 2),
+    ]))
+    story.append(visual_title("Copilot already saves time, and most public-tool users saw value"))
+    story.append(stat_table)
+    story.append(source_note(
+        "Source: DEWR Public Generative AI Trial survey, 2026. Public-tool results are based on valid public-tool users."))
+    story.append(sp(12))
+
+    # Key finding bullets
+    story.append(key_finding(
+        "M365 Copilot users saved nearly double the time of Copilot Chat users: "
+        "5.7 hours vs 2.8 hours per week."))
+    story.append(sp(4))
+    story.append(key_finding(
+        "ChatGPT had the broadest uptake (92%), but Claude showed the strongest "
+        "usefulness (71%) and continuation intent (63%)."))
+    story.append(sp(6))
+    story.append(key_finding(
+        "Public tools provided clearer marginal value for Copilot Chat/basic users "
+        "than for M365 Copilot users."))
+    story.append(sp(6))
+    story.append(key_finding(
+        "The most common barrier was lack of integration with internal systems (49%), "
+        "followed by free-tier prompt limits (41%)."))
+    story.append(sp(6))
+    story.append(key_finding(
+        "75% of respondents were comfortable using public tools. 11% reported ethical "
+        "concerns and 3% reported specific security concerns."))
+    story.append(sp(10))
+
+    # Recommendations
+    story.append(Paragraph("Recommendations", h2))
+    story.append(Paragraph(
+        "The findings reveal several considerations for DEWR in the context of "
+        "future adoption of Public Generative AI tools.", body))
+    story.append(sp(4))
+
+    # Rec categories
+    recs = [
+        ("Targeted access expansion", [
+            "Consider providing broader access to public Gen AI tools, prioritising user groups that showed "
+            "the strongest productivity gains, particularly experienced Gen AI users and Copilot Chat/basic users.",
+            "Evaluate whether paid tiers of public tools (especially Claude) would address free-tier "
+            "limitations that constrained trial benefits.",
+        ]),
+        ("Capability building", [
+            "Offer specialised training reflecting DEWR-specific use cases, building on the finding that "
+            "prior Gen AI experience was the clearest predictor of stronger outcomes.",
+            "Identify and promote ‘Gen AI Champions’ to share effective practices and encourage adoption.",
+        ]),
+        ("Integration and workflow", [
+            "Investigate integration pathways to reduce the manual effort of transferring public tool "
+            "outputs into internal systems, which was the most commonly reported barrier.",
+            "Conduct workflow analysis across Groups and classifications to identify high-value use cases.",
+        ]),
+        ("Governance and risk management", [
+            "Provide clearer guidance on boundary cases for data classification, where staff reported "
+            "uncertainty about what was technically allowed but still sensitive.",
+            "Proactively monitor the impacts of generative AI on the workforce, including effects on "
+            "accuracy, over-reliance, and environmental considerations.",
+        ]),
+    ]
+    for rec_title, rec_items in recs:
+        story.append(Paragraph(rec_title, h3))
+        for item in rec_items:
+            story.append(bullet(item))
+        story.append(sp(4))
+
+    story.append(PageBreak())
+
+    # ==============================
+    # EVALUATION FINDINGS
+    # ==============================
+    story.append(Paragraph("Evaluation findings", h1))
+    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
+    story.append(sp(10))
+
+    # Section 1: Copilot
+    story.append(Paragraph("1. Copilot productivity baseline", s1_h2))
+    story.append(callout(
+        "Copilot already delivers material productivity value, but benefits are tiered by "
+        "access: integrated M365 Copilot produces stronger time savings, deeper engagement "
+        "and a broader task footprint than Copilot Chat/basic access."))
+    story.append(ValueSignalsPanel(width, [
+        ("~2x", "Avg daily time saved"),
+        ("1.8x", "Rated very/extremely useful"),
+        ("1.4x", "Used at least weekly"),
+    ], primary_count=1))
+    story.append(sp(12))
+
+    # Time savings
+    story.append(Paragraph("1.1 M365 Copilot access set a higher productivity baseline", s1_h3))
+    story.append(Paragraph(
+        "M365 Copilot users reported average time savings of 69 minutes per day, compared "
+        "with 34 minutes per day for Copilot Chat/basic users. This means M365 Copilot users reported "
+        "roughly twice the daily time savings of Copilot Chat/basic users.", s1_body))
+    story.append(sp(8))
+    story.append(TimeSavingsPanel(width))
+    story.append(sp(12))
+
+    # Usefulness and frequency
+    story.append(KeepTogether([
+        Paragraph("1.2 Higher time savings were matched by deeper engagement", s1_h3),
+        Paragraph(
+            "The productivity gap was reinforced by engagement signals. M365 Copilot users were "
+            "more likely to rate Copilot as highly useful, use it weekly, and use it daily or most "
+            "of the day, suggesting integration is supporting more habitual use.", s1_body),
+        sp(8),
+        CopilotEngagementDeltaPanel(width),
+    ]))
+    story.append(sp(12))
+
+    # Task types
+    story.append(KeepTogether([
+        Paragraph("1.3 M365 Copilot users reported a broader task footprint", s1_h3),
+        Paragraph(
+            "Across M365 Copilot and Copilot Chat/basic users, Copilot was used most often for summarising, editing and "
+            "revision, and drafting. M365 Copilot users reported using Copilot across more task "
+            "types on average than Copilot Chat/basic users. While both user groups used Copilot "
+            "for the same broad categories of work, M365 Copilot users were more likely to report use for "
+            "research, problem solving and idea generation, and for planning or meeting preparation. "
+            "These tasks are typically more complex than drafting or summarising alone, suggesting "
+            "M365 Copilot access may be associated with broader use in higher-value knowledge-work "
+            "activities.", s1_body),
+        sp(8),
+        TaskFootprintExhibit(width),
+    ]))
+    story.append(sp(14))
+
+    # Section 2: Public Gen AI
+    story.append(PageBreak())
+    story.append(Paragraph("2. Public Gen AI uptake, use and productivity", h2))
+    story.append(callout(
+        "Public Gen AI tools created clear value for many trial users, but benefits were uneven: "
+        "strongest for experienced users, staff with Copilot Chat/basic access, and tasks where "
+        "public tools offered capability or quality beyond Copilot."))
+    story.append(ValueSignalsPanel(width, [
+        ("80%", "Rated at least one public tool useful"),
+        ("72%", "Said public tools add value beyond Copilot"),
+        ("72%", "Wanted continued access"),
+        ("53%", "Used public tools at least weekly"),
+    ], primary_count=1))
+    story.append(sp(6))
+
+    # 2.1 Tool comparison
+    story.append(Paragraph("2.1 ChatGPT had the widest reach; Claude had the strongest value signals", h3))
+    story.append(Paragraph(
+        "ChatGPT was the access point for most trial users, while Claude showed the strongest "
+        "value signal among users. This suggests the public-tool choice was not simply about "
+        "uptake; different tools played different roles.", body))
+    story.append(sp(8))
+    story.append(EvidenceMatrixPanel(
+        width,
+        "Measure",
+        ["ChatGPT", "Claude", "Gemini"],
+        [
+            ("Used during trial", ["92%", "67%", "61%"], 0),
+            ("Rated moderately useful or better", ["62.5%", "70.7%", "64.9%"], 1),
+            ("Rated very/extremely useful", ["28.6%", "46.3%", "29.7%"], 1),
+            ("Wanted continued access", ["54%", "63%", "43%"], 1),
+        ],
+        first_col_ratio=0.43,
+    ))
+    story.append(sp(8))
+
+    # 2.2 Task types
+    story.append(Paragraph("2.2 Public tools were mainly used for broad knowledge work", h3))
+    story.append(Paragraph(
+        "Use clustered around general knowledge-work tasks rather than specialised or "
+        "administrative workflows. Research, summarising, editing and drafting were the "
+        "dominant use cases across the trial.", body))
+    story.append(sp(8))
+    story.append(HorizontalBarPanel(width, "TASK TYPE", [
+        ("Research, problem solving or ideation", 67),
+        ("Summarising", 66),
+        ("Editing and revision", 62),
+        ("Drafting", 61),
+        ("General administrative tasks", 28),
+        ("Coding or data work", 21),
+        ("Planning and meeting preparation", 20),
+    ], max_value=100, primary_count=4, row_h=16))
+    story.append(sp(6))
+    story.append(Paragraph(
+        "Claude had the strongest research profile (73% of Claude users), while Gemini was "
+        "relatively stronger for editing and revision. ChatGPT had a more balanced profile "
+        "across research, summarising, drafting and editing.", body))
+    story.append(sp(8))
+
+    # 2.3 Value distribution
+    story.append(Paragraph("2.3 Public-tool value varied by Copilot version type and user experience", h3))
+    story.append(Paragraph(
+        "Public tools appeared to provide the highest marginal value for Copilot Chat/basic users "
+        "and for users with stronger generative AI capability. Copilot Chat/basic users were more likely "
+        "to see public tools as adding value over Copilot, despite similar weekly usage. The clearest "
+        "experience-related difference was usefulness, where users with some prior Gen AI experience "
+        "or more were more likely to rate at least one public tool useful.", body))
+    story.append(sp(6))
+    story.append(TwoEvidenceCardsPanel(width, [
+        {
+            "metric": "Added value beyond Copilot",
+            "value": "79%",
+            "label": "Copilot Chat/basic users said public tools added value beyond Copilot",
+            "comparison": "vs 63% of M365 Copilot users",
+        },
+        {
+            "metric": "Rated useful",
+            "value": "83%",
+            "label": "Users with some prior Gen AI experience or more rated at least one public tool useful",
+            "comparison": "vs 69% with no/basic prior experience",
+        },
+    ]))
+    story.append(PageBreak())
+
+    # 2.4 Barriers
+    story.append(Paragraph("2.4 Lack of integration, and request limits were the biggest limitations reported", h3))
+    story.append(Paragraph(
+        "Benefits were constrained less by user interest than by operating conditions. "
+        "The main limitations were integration with internal systems, free-tier limits and "
+        "reliability issues.", body))
+    story.append(sp(4))
+    story.append(Paragraph(
+        "Lack of integration was common across all three tools. Free prompt limits were most "
+        "concentrated in ChatGPT (36%), compared with Claude (20%) and Gemini (5%). Gemini had "
+        "the highest share reporting difficulty with specialised topics (38%).", body))
+    story.append(sp(4))
+    story.append(HorizontalBarPanel(width, "LIMITATION REPORTED", [
+        ("Lack of integration with internal systems or Microsoft 365 products", 49),
+        ("Free prompt/request limits", 41),
+        ("Misinterpreted prompts", 34),
+        ("Difficulty with specialised topics", 34),
+        ("Slow responses", 28),
+        ("Fabricated content or hallucinations", 15),
+    ], max_value=100, primary_count=2, row_h=13))
+
+    # Section 3: Concerns
+    story.append(PageBreak())
+    story.append(Paragraph("3. Concerns, risks and safeguards", h2))
+    story.append(callout(
+        "Most valid users were comfortable and reported security concerns were rare. Survey "
+        "results suggest safety communications and splash screens supported cautious use, while "
+        "data-handling risks were mainly visible through copy/paste behaviour and user judgement.",
+        DEWR_DARK_GREEN))
+    story.append(sp(8))
+
+    story.append(Paragraph("3.1 Comfort was high, but risk signals were not absent", h3))
+    story.append(Paragraph(
+        "Staff comfort was relatively high, but the concern profile was not negligible. "
+        "Three-quarters of respondents were comfortable using public tools, while one-quarter "
+        "remained uncomfortable and smaller shares reported ethical or security concerns.", body))
+    story.append(sp(8))
+    story.append(visual_title("Most respondents were comfortable, but one in four were not"))
+    story.append(ValueSignalsPanel(width, [
+        ("75%", "Comfortable or very comfortable using public tools"),
+        ("25%", "Uncomfortable using public tools"),
+        ("11%", "Ethical concerns encountered"),
+        ("3%", "Reported specific security concerns"),
+    ], primary_count=1))
+    story.append(source_note(
+        "Source: DEWR Public Generative AI Trial survey, 2026."))
+    story.append(sp(8))
+
+    story.append(Paragraph("3.2 Concerns centred on practical operating boundaries", h3))
+    story.append(Paragraph(
+        "Open-text concerns were broader than reported incidents and centred on the practical "
+        "conditions for safe use. The most common themes were tool access and integration, "
+        "data handling, and output accuracy.", body))
+    story.append(sp(8))
+    story.append(visual_title("Open-text concerns focused on access, data handling and accuracy"))
+    story.append(ConcernClusterMap(width))
+    story.append(sp(4))
+    story.append(source_note(
+        "Note: More filled dots indicate themes raised more often in open-text responses "
+        "(n=51; 32 open-text entries). Counts are mentions, not unique respondents, and should not be summed. "
+        "Source: DEWR Public Generative AI Trial survey, 2026."))
+    story.append(sp(8))
+
+    story.append(PageBreak())
+    story.append(Paragraph("3.3 Safety communications were rated effective by most valid users", h3))
+    story.append(Paragraph(
+        "The survey provides the clearest positive evidence for the communications layer. "
+        "Around seven in ten valid users rated the introductory email and splash screens as "
+        "moderately or highly effective. Reported security concerns were rare, and no valid user "
+        "rated upload blockers as ineffective.", body))
+    story.append(sp(8))
+    story.append(visual_title("Most valid users rated email and splash screens effective"))
+    story.append(ValueSignalsPanel(width, [
+        ("74%", "Introductory email moderately or highly effective"),
+        ("72%", "Splash screens moderately or highly effective"),
+        ("67%", "Rated both email and splash screens effective"),
+        ("0%", "Rated upload blockers ineffective"),
+    ], primary_count=2))
+    story.append(sp(6))
+    story.append(source_note(
+        "Note: Percentages use the valid public-tool user denominator where available "
+        "(n=60-61 depending on skipped items). Upload-blocker results reflect ratings and visibility, not trigger frequency. "
+        "Source: DEWR Public Generative AI Trial survey, 2026."))
+    story.append(sp(8))
+
+    story.append(Paragraph("3.4 Positive safety communications aligned with higher comfort", h3))
+    story.append(Paragraph(
+        "Users who rated both the introductory email and splash screens positively were more "
+        "likely to feel comfortable using public tools. This does not prove causation, but it "
+        "supports the interpretation that communications helped users understand trial boundaries "
+        "and operate with more confidence.", body))
+    story.append(sp(8))
+    story.append(visual_title("Comfort was higher among users who found both safety communications effective"))
+    story.append(HorizontalBarPanel(width, "USER GROUP", [
+        ("Rated both email and splash screens effective", 82.5),
+        ("Did not rate both channels effective", 61.9),
+    ], max_value=100, primary_count=1))
+    story.append(sp(6))
+    story.append(source_note(
+        "Note: Comfort means comfortable or very comfortable using public tools. Source: DEWR Public "
+        "Generative AI Trial survey, 2026."))
+    story.append(sp(8))
+
+    story.append(PageBreak())
+    story.append(Paragraph("3.5 Data handling relied more on user judgement than visible upload blocking", h3))
+    story.append(Paragraph(
+        "Most valid users did not notice upload blockers, while copying and pasting information "
+        "was more common than document upload. This suggests the survey captured stronger "
+        "evidence of user behaviour and judgement than of technical blocker performance. No valid "
+        "user rated upload blockers ineffective, but the low visibility of blockers means the survey "
+        "provides limited direct evidence about how often they were triggered.", body))
+    story.append(sp(8))
+    story.append(visual_title("Copy/paste was more common than document upload; blockers had low visibility"))
+    story.append(HorizontalBarPanel(width, "MEASURE", [
+        ("Copied and pasted information", 70.5),
+        ("Uploaded documents", 42.6),
+        ("Noticed/rated upload blockers effective", 16.7),
+        ("Rated upload blockers ineffective", 0),
+    ], max_value=100, primary_count=1))
+    story.append(sp(6))
+    story.append(source_note(
+        "Note: 43 of 61 valid users copied/pasted information; 26 of 61 uploaded documents; "
+        "10 of 60 rated upload blockers effective; no valid user rated blockers ineffective. "
+        "Source: DEWR Public Generative AI Trial survey, 2026."))
+    story.append(sp(8))
+
+    story.append(KeepTogether([
+        Paragraph("3.6 Staff were making judgement calls at the edge of guidance", h3),
+        Paragraph(
+            "The strongest qualitative signal was not a single incident category, but uncertainty "
+            "at the boundary of policy and practice. Some users described having to decide in the "
+            "moment whether information was appropriate for public tools, how to validate outputs, "
+            "and when Copilot's APS-specific safeguards mattered.", body),
+        sp(8),
+        visual_title("Staff judgement was needed at three practical boundaries"),
+        SafeguardPrioritiesPanel(width),
+    ]))
+    story.append(sp(6))
+    story.append(Paragraph(
+        '“There were a few occasions where I had to question myself before hitting send on a '
+        'prompt, project management artifacts could be hard to classify and will require the user to '
+        'make a judgement call in the moment.”', quote_style))
+    story.append(Paragraph(
+        '“I chose not to upload some documents &amp; use the AI because even though they were within '
+        'the allowed classifications, they contained information that could be deemed commercially '
+        'confidential.”', quote_style))
+    story.append(Paragraph(
+        '“When asking the AI tools about the State reservations on CEDAW, Copilot gave an answer '
+        'in very neutral language. The other three AI tools all gave what I would describe as far less '
+        'sensitive responses... This highlighted the value of the extra APS sensitivities that have been '
+        'put into Copilot chat.”', quote_style))
+    story.append(sp(8))
+
+    story.append(Paragraph(
+        "Environmental sustainability, over-reliance and broader workforce effects were raised less "
+        "frequently than data and access issues, but they were still part of the broader concern "
+        "profile reported by users.", body))
+    story.append(Paragraph(
+        '"No indication of how resource intensive AI LLM are / the environmental impacts of using '
+        'these tools. I am not confident that the risks to climate change or the environment have been '
+        'fully considered by government."', quote_style))
+    story.append(sp(10))
+
+    # ==============================
+    # APPROACH AND METHODOLOGY
+    # ==============================
+    story.append(PageBreak())
+    story.append(Paragraph("Approach and methodology", h1))
+    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
+    story.append(sp(8))
+
+    story.append(Paragraph("Goal and scope", h3))
+    story.append(Paragraph(
+        "The trial assessed whether providing DEWR staff with access to publicly available "
+        "Generative AI tools would deliver productivity benefits beyond those already provided by "
+        "Microsoft Copilot. The trial ran for a defined period in January 2026 with approximately "
+        "200 randomly selected and stratified employees.", body))
+    story.append(sp(4))
+
+    story.append(Paragraph("Sampling", h3))
+    story.append(bullet("5% of DEWR employees were selected for the trial."))
+    story.append(bullet("Selection was randomised and stratified across Groups, Copilot access types, and APS levels."))
+    story.append(bullet("All trial participants retained their existing Copilot access throughout."))
+    story.append(sp(4))
+
+    story.append(Paragraph("Survey design and response", h3))
+    story.append(bullet("A voluntary post-trial survey was administered to all trial participants."))
+    story.append(bullet("104 staff completed the survey (approximately 52% response rate)."))
+    story.append(bullet("Respondents: 52 APS staff (50%) and 52 Executive Level staff (50%)."))
+    story.append(bullet("Respondents came from all five departmental groups."))
+    story.append(bullet("71 respondents (68.3%) used at least one public Gen AI tool during the trial."))
+    story.append(bullet("30 respondents reported having M365 Copilot access."))
+    story.append(sp(4))
+
+    story.append(Paragraph("Most respondents had at least some prior Gen AI experience", h3))
+    exp_data = [
+        ["Experience level", "Count", "Share"],
+        ["No prior experience", "7", "6.7%"],
+        ["Basic familiarity", "33", "31.7%"],
+        ["Some experience", "35", "33.7%"],
+        ["Experienced", "24", "23.1%"],
+        ["Highly experienced", "5", "4.8%"],
+    ]
+    exp_w = [width * 0.50, width * 0.25, width * 0.25]
+    t3 = Table(exp_data, colWidths=exp_w)
+    t3.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), DEWR_NAVY),
+        ('TEXTCOLOR', (0, 0), (-1, 0), white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica'),
+        ('TEXTCOLOR', (0, 1), (-1, -1), DEWR_DARK_GREY),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.5, DEWR_LIGHT_GREY),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [HexColor("#F5F5F5"), white]),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(t3)
+    story.append(source_note(
+        "Note: n=104; shares may not total 100 due to rounding. Source: DEWR Public Generative AI Trial survey, 2026."))
+    story.append(sp(10))
+
+    # ==============================
+    # APPENDIX
+    # ==============================
+    story.append(PageBreak())
+    story.append(Paragraph("Appendix", h1))
+    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
+    story.append(sp(8))
+
+    story.append(Paragraph("Additional survey patterns", h3))
+    story.append(Paragraph(
+        "Public-tool value also varied by APS/EL level and organisational group. EL users were more "
+        "likely to report value over Copilot, APS users were more likely to rate at least one public "
+        "tool as useful, and Workplace Relations recorded the strongest value-over-Copilot result.",
+        body))
+    story.append(sp(8))
+
+    story.append(Paragraph("Survey questionnaire", h2))
+    story.append(Paragraph(
+        "The survey comprised mandatory and optional questions across six sections. "
+        "Questions requiring an answer are denoted with an asterisk (*). Skip logic directed "
+        "participants to later questions based on their responses.", body))
+    story.append(sp(4))
+
+    sections = [
+        ("Section 1: General questions (Q1–Q11)", [
+            "APS level, Group, Job Family, Job Title",
+            "Prior Gen AI experience level",
+            "Whether the participant used public Gen AI tools during the trial",
+            "Reasons for non-use (if applicable)",
+            "Frequency of public tool use, experience improvement, document upload and copy-paste behaviour",
+        ]),
+        ("Section 2: Copilot (Q12–Q17)", [
+            "M365 Copilot access status",
+            "Copilot usage frequency, task types, overall usefulness",
+            "Time saved by activity area and across the average workday",
+        ]),
+        ("Section 3: ChatGPT (Q18–Q25)", [
+            "Whether ChatGPT was used, frequency, task types, usefulness",
+            "Comparison with Copilot across five dimensions",
+            "Additional value beyond Copilot by task type",
+            "Limitations experienced and continuation intent",
+        ]),
+        ("Section 4: Gemini (Q26–Q33)", [
+            "Same structure as ChatGPT section",
+        ]),
+        ("Section 5: Claude (Q34–Q41)", [
+            "Same structure as ChatGPT section",
+        ]),
+        ("Section 6: Final questions (Q42–Q48)", [
+            "Overall comfort using public Gen AI tools",
+            "Value of public tools over and above Copilot",
+            "Ethical and security concerns encountered",
+            "Open-text feedback on concerns and additional comments",
+        ]),
+    ]
+    for sec_title, items in sections:
+        story.append(Paragraph(sec_title, h3))
+        for item in items:
+            story.append(bullet(item))
+        story.append(sp(4))
+
+    # Build
+    doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
+    print(f"Report generated: {OUTPUT_PATH}")
+
+
+if __name__ == "__main__":
+    build_report()

@@ -1,0 +1,92 @@
+<style>
+  .viz-options { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  .viz-card { border: 1px solid #d1d5db; border-radius: 10px; background: #fff; overflow: hidden; cursor: pointer; }
+  .viz-card:hover { border-color: #719f4c; box-shadow: 0 8px 24px rgba(64,66,70,.10); }
+  .viz-card.selected { border-color: #5d7a38; box-shadow: 0 0 0 3px rgba(113,159,76,.22); }
+  .viz-head { padding: 14px 16px 10px; border-bottom: 1px solid #e5e7eb; }
+  .viz-head h3 { margin: 0 0 4px; color: #111; font-family: Georgia, serif; font-size: 22px; }
+  .viz-head p { margin: 0; color: #6b7280; font-size: 13px; }
+  .viz-body { padding: 16px; }
+  .hero-stat { display: grid; grid-template-columns: 1.15fr .8fr; gap: 16px; align-items: center; }
+  .big-num { color: #5d7a38; font-size: 54px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+  .big-num span { font-size: 19px; font-weight: 700; color: #404246; }
+  .compare-pill { display: inline-block; padding: 5px 9px; margin-top: 8px; color: #fff; background: #404246; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .bars { display: grid; gap: 9px; }
+  .bar-row { display: grid; grid-template-columns: 150px 1fr 42px; gap: 10px; align-items: center; font-size: 12px; }
+  .bar-track { height: 12px; background: #eef0f2; border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #719f4c; border-radius: 99px; }
+  .bar-fill.grey { background: #a4a7a9; }
+  .delta { color: #5d7a38; font-weight: 800; }
+  .matrix { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #d1d5db; }
+  .matrix > div { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+  .matrix > div:nth-child(odd) { border-right: 1px solid #e5e7eb; }
+  .matrix .label { color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .matrix .value { margin-top: 5px; color: #111; font-size: 24px; font-weight: 800; }
+  .gap-list { display: grid; gap: 12px; }
+  .gap-item { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding-bottom: 10px; border-bottom: 1px solid #e5e7eb; }
+  .gap-item:last-child { border-bottom: 0; }
+  .gap-title { font-weight: 800; color: #111; }
+  .gap-sub { color: #6b7280; font-size: 12px; }
+  .gap-num { color: #5d7a38; font-size: 24px; font-weight: 900; }
+</style>
+
+<h2>Choose a cleaner treatment for the task-range finding</h2>
+<p class="subtitle">All options use your preferred message: lead with <strong>4.0 vs 3.2 task types</strong>, then explain the two biggest gaps driving the broader footprint.</p>
+
+<div class="viz-options">
+  <div class="viz-card option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="viz-head">
+      <h3>A. Recommended: hero breadth metric + two gap bars</h3>
+      <p>Most executive-readable: one headline stat, then the two specific behaviours that explain it.</p>
+    </div>
+    <div class="viz-body hero-stat">
+      <div>
+        <div class="big-num">4.0 <span>task types</span></div>
+        <div style="color:#6b7280">M365 Copilot users selected on average, compared with <strong>3.2</strong> for Copilot Chat.</div>
+        <div class="compare-pill">+0.8 task types per user</div>
+      </div>
+      <div class="bars">
+        <div class="bar-row"><strong>Research / ideas</strong><div class="bar-track"><div class="bar-fill" style="width:67%"></div></div><span>67%</span></div>
+        <div class="bar-row"><span>Copilot Chat</span><div class="bar-track"><div class="bar-fill grey" style="width:44%"></div></div><span>44%</span></div>
+        <div class="bar-row"><strong>Meeting prep</strong><div class="bar-track"><div class="bar-fill" style="width:33%"></div></div><span>33%</span></div>
+        <div class="bar-row"><span>Copilot Chat</span><div class="bar-track"><div class="bar-fill grey" style="width:15%"></div></div><span>15%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="viz-card option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="viz-head">
+      <h3>B. Dense consulting panel: metric tiles + gap callouts</h3>
+      <p>More boardroom-packaged, but slightly heavier. Good if this needs to look like a standalone exhibit.</p>
+    </div>
+    <div class="viz-body">
+      <div class="matrix">
+        <div><div class="label">M365 Copilot breadth</div><div class="value" style="color:#5d7a38">4.0</div></div>
+        <div><div class="label">Copilot Chat breadth</div><div class="value">3.2</div></div>
+        <div><div class="label">Research / problem solving gap</div><div class="value">+23 pts</div></div>
+        <div><div class="label">Planning / meeting prep gap</div><div class="value">+18 pts</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="viz-card option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="viz-head">
+      <h3>C. Minimal implication strip</h3>
+      <p>Cleanest and shortest. Best if the page is tight and the chart should not compete with the time-savings hero.</p>
+    </div>
+    <div class="viz-body gap-list">
+      <div class="gap-item">
+        <div><div class="gap-title">M365 Copilot has a broader task footprint</div><div class="gap-sub">Users selected 4.0 task types on average vs 3.2 for Copilot Chat</div></div>
+        <div class="gap-num">+0.8</div>
+      </div>
+      <div class="gap-item">
+        <div><div class="gap-title">Largest behavioural gap: research and ideation</div><div class="gap-sub">67% of M365 Copilot users vs 44% of Copilot Chat users</div></div>
+        <div class="gap-num">+23 pts</div>
+      </div>
+      <div class="gap-item">
+        <div><div class="gap-title">Secondary gap: planning and meeting preparation</div><div class="gap-sub">33% of M365 Copilot users vs 15% of Copilot Chat users</div></div>
+        <div class="gap-num">+18 pts</div>
+      </div>
+    </div>
+  </div>
+</div>

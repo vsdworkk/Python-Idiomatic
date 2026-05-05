@@ -1,0 +1,5 @@
+.DS_Store
+Resources/
+Outputs/
+__pycache__/
+*.py[cod]

@@ -761,6 +761,68 @@ class SafeguardPrioritiesPanel(Flowable):
             p.drawOn(c, x + 10, h - 116)
 
 
+class UncertaintyAreasPanel(Flowable):
+    """Three-column panel for uncertainty themes in open-text responses."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 126
+        self.items = [
+            ("Information boundaries",
+             "Uncertainty about what information was appropriate to enter, including unclassified but sensitive material."),
+            ("Commercial sensitivity",
+             "Some respondents avoided uploading material that was allowed by classification but felt commercially sensitive."),
+            ("Validation and APS safeguards",
+             "Respondents raised the need to check outputs and noted differences between public tools and Copilot safeguards."),
+        ]
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(pad, h - 22, "AREAS OF UNCERTAINTY IN OPEN-TEXT RESPONSES")
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(pad, h - 36, w - pad, h - 36)
+
+        col_w = (w - 2 * pad) / 3
+        for i, (title, text) in enumerate(self.items):
+            x = pad + i * col_w
+            if i:
+                c.setStrokeColor(DEWR_LIGHT_GREY)
+                c.line(x, 18, x, h - 46)
+
+            title_p = Paragraph(title, ParagraphStyle(
+                "uncertainty_title",
+                fontName="Helvetica-Bold",
+                fontSize=8.6,
+                leading=10.2,
+                textColor=DEWR_DARK_GREY,
+            ))
+            title_p.wrap(col_w - 22, 28)
+            title_p.drawOn(c, x + 10, h - 68)
+            p = Paragraph(text, ParagraphStyle(
+                "uncertainty_text",
+                fontName="Helvetica",
+                fontSize=8.0,
+                leading=9.6,
+                textColor=DEWR_DARK_GREY,
+            ))
+            p.wrap(col_w - 22, 48)
+            p.drawOn(c, x + 10, h - 112)
+
+
 class SafeguardModelPanel(Flowable):
     """Four-part safeguard model for future rollout."""
     def __init__(self, width):
@@ -823,12 +885,12 @@ class ConcernClusterMap(Flowable):
         self._height = 158
         self.clusters = [
             ("COMMON PRACTICAL CONCERNS", [
-                (3, "Tool access, integration and cost (17 mentions)"),
+                (3, "Tool access, integration and cost (17)"),
                 (2, "Data privacy, confidentiality and public-tool data use (13)"),
                 (1, "Accuracy, hallucination and validation (8)"),
             ]),
             ("BROADER TRUST AND IMPACT CONCERNS", [
-                (1, "Environmental impact (5 mentions)"),
+                (1, "Environmental impact (5)"),
                 (1, "Workforce, capability and civic reliance (4)"),
                 (1, "Other: bias, ethics, governance (2)"),
             ]),
@@ -865,10 +927,11 @@ class ConcernClusterMap(Flowable):
             row_y = h - 62
             for row_idx, (dot_count, label) in enumerate(rows):
                 y = row_y - row_idx * 28
+                dot_center_y = y + 4
                 for dot_idx in range(3):
                     c.setFillColor(DEWR_DARK_GREEN if dot_idx < dot_count and cluster_idx == 0 else
                                    DEWR_DARK_GREY if dot_idx < dot_count else HexColor("#E3E5E6"))
-                    c.circle(x + 6 + dot_idx * 10, y + 4, 2.7, fill=1, stroke=0)
+                    c.circle(x + 6 + dot_idx * 10, dot_center_y, 2.7, fill=1, stroke=0)
                 p = Paragraph(label, ParagraphStyle(
                     "concern_cluster_label",
                     fontName="Helvetica",
@@ -876,8 +939,8 @@ class ConcernClusterMap(Flowable):
                     leading=9.0,
                     textColor=DEWR_NAVY,
                 ))
-                p.wrap(cluster_w - 40, 24)
-                p.drawOn(c, x + 38, y - 1)
+                _, label_h = p.wrap(cluster_w - 40, 24)
+                p.drawOn(c, x + 38, dot_center_y - label_h / 2)
 
 
 class GroupedBarChart(Flowable):
@@ -1266,6 +1329,16 @@ def build_report():
     def bullet(text):
         return Paragraph(f"<bullet>&bull;</bullet> {text}", bullet_style)
 
+    limitation_bullet_style = ParagraphStyle(
+        'LimitationBullet',
+        parent=bullet_style,
+        leading=15,
+        spaceAfter=7,
+    )
+
+    def limitation_bullet(text):
+        return Paragraph(f"<bullet>&bull;</bullet> {text}", limitation_bullet_style)
+
     def callout(text, color=DEWR_DARK_GREEN):
         return CalloutBox(text, width, bg_color=color)
 
@@ -1399,7 +1472,7 @@ def build_report():
     story.append(visual_title("Copilot already saves time, and most public-tool users saw value"))
     story.append(stat_table)
     story.append(source_note(
-        "Source: DEWR Public Generative AI Trial survey, 2026. Public-tool results are based on valid public-tool users."))
+        "Source: DEWR Public Generative AI Trial survey, 2026. Public-tool results are based on survey respondents."))
     story.append(sp(12))
 
     # Key finding bullets
@@ -1624,9 +1697,10 @@ def build_report():
         "very or extremely useful, compared with <b>46%</b> some prior Gen AI experience and "
         "<b>39%</b> no/basic prior Gen AI experience.", body))
     story.append(Paragraph(
-        "They were also more likely to see a public tool outperform Copilot (<b>86% vs 69%</b> for both "
-        "lower-experience groups) and to strongly want continued access (<b>55% vs 31%</b> some prior "
-        "Gen AI experience and <b>15%</b> no/basic prior Gen AI experience).", body))
+        "They were also more likely to rate at least one public tool better than Copilot on at least "
+        "one comparison dimension (<b>86% vs 69%</b> for both lower-experience groups) and to strongly "
+        "want continued access (<b>55% vs 31%</b> some prior Gen AI experience and <b>15%</b> no/basic "
+        "prior Gen AI experience).", body))
     story.append(PageBreak())
     story.append(Paragraph("2.3.3 Other segment patterns", mini_heading))
     story.append(sp(4))
@@ -1638,21 +1712,32 @@ def build_report():
         "Workplace Relations showed the strongest value and continuation signal (<b>85.7%</b> on both), "
         "while Corporate and Enabling had the strongest regular-use pattern among larger groups "
         "(<b>75.0%</b> weekly use).", body))
-    story.append(PageBreak())
+    story.append(sp(4))
 
     # 2.4 Barriers
-    story.append(Paragraph("2.4 Lack of integration, and request limits were the biggest limitations reported", h3))
-    story.append(Paragraph(
-        "Benefits were constrained less by user interest than by operating conditions. "
-        "The main limitations were integration with internal systems, free-tier limits and "
-        "reliability issues.", body))
+    story.append(Paragraph("2.4 Limitations were common, led by lack of integration with internal systems and request limits", h3))
     story.append(sp(4))
-    story.append(Paragraph(
-        "Lack of integration was common across all three tools. Free prompt limits were most "
-        "concentrated in ChatGPT (36%), compared with Claude (20%) and Gemini (5%). Gemini had "
-        "the highest share reporting difficulty with specialised topics (38%).", body))
-    story.append(sp(4))
-    story.append(HorizontalBarPanel(width, "LIMITATION REPORTED", [
+    story.append(HorizontalEvidenceCallout(
+        width,
+        "Limitations reported",
+        "92%",
+        "of respondents reported at least one limitation with at least one public AI tool",
+        "",
+    ))
+    story.append(sp(11))
+    story.append(Paragraph("Limitations clustered around three signals:", body_bold))
+    story.append(sp(2))
+    story.append(limitation_bullet(
+        "<b>Integration was the universal workflow barrier:</b> <b>49%</b> of survey respondents reported "
+        "lack of integration, with tool-level rates around half of users across ChatGPT, Gemini and Claude."))
+    story.append(limitation_bullet(
+        "<b>Request limits were the main access constraint:</b> <b>41%</b> of survey respondents reported "
+        "free prompt/request limits."))
+    story.append(limitation_bullet(
+        "<b>Limits were most acute for experienced users:</b> <b>59.1%</b> of experienced/highly "
+        "experienced users reported request limits, compared with <b>30.8%</b> of both lower-experience groups."))
+    story.append(sp(11))
+    story.append(HorizontalBarPanel(width, "LIMITATIONS REPORTED BY RESPONDENTS", [
         ("Lack of integration with internal systems or Microsoft 365 products", 49),
         ("Free prompt/request limits", 41),
         ("Misinterpreted prompts", 34),
@@ -1665,142 +1750,72 @@ def build_report():
     story.append(PageBreak())
     story.append(Paragraph("3. Concerns, risks and safeguards", h2))
     story.append(callout(
-        "Most valid users were comfortable and reported security concerns were rare. Survey "
+        "Most survey respondents were comfortable and reported security concerns were rare. Survey "
         "results suggest safety communications and splash screens supported cautious use, while "
         "data-handling risks were mainly visible through copy/paste behaviour and user judgement.",
         DEWR_DARK_GREEN))
-    story.append(sp(8))
-
-    story.append(Paragraph("3.1 Comfort was high, but risk signals were not absent", h3))
-    story.append(Paragraph(
-        "Staff comfort was relatively high, but the concern profile was not negligible. "
-        "Three-quarters of respondents were comfortable using public tools, while one-quarter "
-        "remained uncomfortable and smaller shares reported ethical or security concerns.", body))
-    story.append(sp(8))
-    story.append(visual_title("Most respondents were comfortable, but one in four were not"))
     story.append(ValueSignalsPanel(width, [
         ("75%", "Comfortable or very comfortable using public tools"),
         ("25%", "Uncomfortable using public tools"),
         ("11%", "Ethical concerns encountered"),
         ("3%", "Reported specific security concerns"),
     ], primary_count=1))
-    story.append(source_note(
-        "Source: DEWR Public Generative AI Trial survey, 2026."))
+    story.append(sp(12))
+
+    story.append(Paragraph("3.1 Most respondents were comfortable; security concerns were rare", h3))
+    story.append(Paragraph(
+        "Survey results showed relatively high comfort using public tools. Three-quarters of "
+        "respondents were comfortable or very comfortable using public tools, while one-quarter "
+        "were uncomfortable. Reported concern signals were lower: <b>11%</b> reported ethical "
+        "concerns and <b>3%</b> reported specific security concerns.", body))
+    story.append(Paragraph(
+        "Comfort was also higher among respondents who rated both the introductory email and splash "
+        "screens effective: <b>82.5%</b> of this group were comfortable or very comfortable using "
+        "public tools, compared with <b>61.9%</b> among respondents who did not rate both channels "
+        "effective.", body))
     story.append(sp(8))
 
-    story.append(Paragraph("3.2 Concerns centred on practical operating boundaries", h3))
+    story.append(Paragraph("3.2 Open-text responses showed uncertainty at practical boundaries", h3))
     story.append(Paragraph(
-        "Open-text concerns were broader than reported incidents and centred on the practical "
-        "conditions for safe use. The most common themes were tool access and integration, "
-        "data handling, and output accuracy.", body))
-    story.append(sp(8))
-    story.append(visual_title("Open-text concerns focused on access, data handling and accuracy"))
-    story.append(ConcernClusterMap(width))
-    story.append(sp(4))
-    story.append(source_note(
-        "Note: More filled dots indicate themes raised more often in open-text responses "
-        "(n=51; 32 open-text entries). Counts are mentions, not unique respondents, and should not be summed. "
-        "Source: DEWR Public Generative AI Trial survey, 2026."))
+        "Open-text responses still showed uncertainty at practical boundaries, particularly where "
+        "information was technically allowed but still sensitive, commercially confidential, difficult "
+        "to classify, or required output validation.", body))
+    story.append(sp(6))
+    story.append(UncertaintyAreasPanel(width))
     story.append(sp(8))
 
     story.append(PageBreak())
-    story.append(Paragraph("3.3 Safety communications were rated effective by most valid users", h3))
+    story.append(Paragraph("3.3 Respondents were more likely to copy/paste information than upload documents", h3))
     story.append(Paragraph(
-        "The survey provides the clearest positive evidence for the communications layer. "
-        "Around seven in ten valid users rated the introductory email and splash screens as "
-        "moderately or highly effective. Reported security concerns were rare, and no valid user "
-        "rated upload blockers as ineffective.", body))
+        "Reported data-handling behaviour varied by activity. Copying and pasting information "
+        "into public tools was more common than uploading documents. Among survey respondents, "
+        "<b>70.5%</b> copied and pasted information, while <b>42.6%</b> uploaded documents.", body))
     story.append(sp(8))
-    story.append(visual_title("Most valid users rated email and splash screens effective"))
+    story.append(HorizontalBarPanel(width, "MEASURE", [
+        ("Copied and pasted information", 70.5),
+        ("Uploaded documents", 42.6),
+    ], max_value=100, primary_count=1))
+    story.append(sp(8))
+
+    story.append(Paragraph("3.4 Safety communications were rated effective by most survey respondents", h3))
     story.append(ValueSignalsPanel(width, [
         ("74%", "Introductory email moderately or highly effective"),
         ("72%", "Splash screens moderately or highly effective"),
         ("67%", "Rated both email and splash screens effective"),
-        ("0%", "Rated upload blockers ineffective"),
-    ], primary_count=2))
-    story.append(sp(6))
-    story.append(source_note(
-        "Note: Percentages use the valid public-tool user denominator where available "
-        "(n=60-61 depending on skipped items). Upload-blocker results reflect ratings and visibility, not trigger frequency. "
-        "Source: DEWR Public Generative AI Trial survey, 2026."))
+    ], primary_count=0))
+    story.append(sp(10))
+    story.append(Paragraph(
+        "Survey responses showed two different safeguard signals. Most respondents rated the "
+        "safety communications positively: the introductory email was rated moderately or highly "
+        "effective by <b>74%</b> of respondents, while splash screens were rated moderately or "
+        "highly effective by <b>72%</b>. Two-thirds of respondents rated both the email and splash "
+        "screens effective.", body))
+    story.append(Paragraph(
+        "Upload blockers were less visible in the survey results: <b>16.7%</b> of respondents "
+        "noticed or rated upload blockers as effective, and no respondent rated upload blockers "
+        "ineffective.", body))
     story.append(sp(8))
 
-    story.append(Paragraph("3.4 Positive safety communications aligned with higher comfort", h3))
-    story.append(Paragraph(
-        "Users who rated both the introductory email and splash screens positively were more "
-        "likely to feel comfortable using public tools. This does not prove causation, but it "
-        "supports the interpretation that communications helped users understand trial boundaries "
-        "and operate with more confidence.", body))
-    story.append(sp(8))
-    story.append(visual_title("Comfort was higher among users who found both safety communications effective"))
-    story.append(HorizontalBarPanel(width, "USER GROUP", [
-        ("Rated both email and splash screens effective", 82.5),
-        ("Did not rate both channels effective", 61.9),
-    ], max_value=100, primary_count=1))
-    story.append(sp(6))
-    story.append(source_note(
-        "Note: Comfort means comfortable or very comfortable using public tools. Source: DEWR Public "
-        "Generative AI Trial survey, 2026."))
-    story.append(sp(8))
-
-    story.append(PageBreak())
-    story.append(Paragraph("3.5 Data handling relied more on user judgement than visible upload blocking", h3))
-    story.append(Paragraph(
-        "Most valid users did not notice upload blockers, while copying and pasting information "
-        "was more common than document upload. This suggests the survey captured stronger "
-        "evidence of user behaviour and judgement than of technical blocker performance. No valid "
-        "user rated upload blockers ineffective, but the low visibility of blockers means the survey "
-        "provides limited direct evidence about how often they were triggered.", body))
-    story.append(sp(8))
-    story.append(visual_title("Copy/paste was more common than document upload; blockers had low visibility"))
-    story.append(HorizontalBarPanel(width, "MEASURE", [
-        ("Copied and pasted information", 70.5),
-        ("Uploaded documents", 42.6),
-        ("Noticed/rated upload blockers effective", 16.7),
-        ("Rated upload blockers ineffective", 0),
-    ], max_value=100, primary_count=1))
-    story.append(sp(6))
-    story.append(source_note(
-        "Note: 43 of 61 valid users copied/pasted information; 26 of 61 uploaded documents; "
-        "10 of 60 rated upload blockers effective; no valid user rated blockers ineffective. "
-        "Source: DEWR Public Generative AI Trial survey, 2026."))
-    story.append(sp(8))
-
-    story.append(KeepTogether([
-        Paragraph("3.6 Staff were making judgement calls at the edge of guidance", h3),
-        Paragraph(
-            "The strongest qualitative signal was not a single incident category, but uncertainty "
-            "at the boundary of policy and practice. Some users described having to decide in the "
-            "moment whether information was appropriate for public tools, how to validate outputs, "
-            "and when Copilot's APS-specific safeguards mattered.", body),
-        sp(8),
-        visual_title("Staff judgement was needed at three practical boundaries"),
-        SafeguardPrioritiesPanel(width),
-    ]))
-    story.append(sp(6))
-    story.append(Paragraph(
-        '“There were a few occasions where I had to question myself before hitting send on a '
-        'prompt, project management artifacts could be hard to classify and will require the user to '
-        'make a judgement call in the moment.”', quote_style))
-    story.append(Paragraph(
-        '“I chose not to upload some documents &amp; use the AI because even though they were within '
-        'the allowed classifications, they contained information that could be deemed commercially '
-        'confidential.”', quote_style))
-    story.append(Paragraph(
-        '“When asking the AI tools about the State reservations on CEDAW, Copilot gave an answer '
-        'in very neutral language. The other three AI tools all gave what I would describe as far less '
-        'sensitive responses... This highlighted the value of the extra APS sensitivities that have been '
-        'put into Copilot chat.”', quote_style))
-    story.append(sp(8))
-
-    story.append(Paragraph(
-        "Environmental sustainability, over-reliance and broader workforce effects were raised less "
-        "frequently than data and access issues, but they were still part of the broader concern "
-        "profile reported by users.", body))
-    story.append(Paragraph(
-        '"No indication of how resource intensive AI LLM are / the environmental impacts of using '
-        'these tools. I am not confident that the risks to climate change or the environment have been '
-        'fully considered by government."', quote_style))
     story.append(sp(10))
 
     # ==============================

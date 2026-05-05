@@ -536,7 +536,7 @@ class MarginalValuePanel(Flowable):
 
 
 class TwoEvidenceCardsPanel(Flowable):
-    """Two concise proof-point cards for paired executive evidence."""
+    """Concise proof-point cards for executive evidence."""
     def __init__(self, width, cards):
         Flowable.__init__(self)
         self.box_width = width
@@ -552,7 +552,8 @@ class TwoEvidenceCardsPanel(Flowable):
         w = self.box_width
         h = self._height
         gap = 10
-        card_w = (w - gap) / 2
+        card_count = len(self.cards)
+        card_w = (w - gap * (card_count - 1)) / card_count
 
         label_style = ParagraphStyle(
             "evidence_card_label",
@@ -594,6 +595,50 @@ class TwoEvidenceCardsPanel(Flowable):
             vs = Paragraph(card["comparison"], vs_style)
             vs.wrap(card_w - 34, 18)
             vs.drawOn(c, x + 17, 9)
+
+
+class HorizontalEvidenceCallout(Flowable):
+    """Full-width callout with a large value and concise supporting sentence."""
+    def __init__(self, width, metric, value, text, comparison):
+        Flowable.__init__(self)
+        self.box_width = width
+        self.value = value
+        self.text = text
+        self.comparison = comparison
+        self._height = 58
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 18
+        value_w = 92
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        c.setFillColor(DEWR_DARK_GREEN)
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(value_w / 2 + 4, 22, self.value)
+
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.6)
+        c.line(value_w + 8, 16, value_w + 8, h - 16)
+
+        text_style = ParagraphStyle(
+            "horizontal_callout_text",
+            fontName="Helvetica",
+            fontSize=9.3,
+            leading=10.8,
+            textColor=DEWR_DARK_GREY,
+        )
+        text = Paragraph(f"{self.text} <b>{self.comparison}</b>", text_style)
+        text_w, text_h = text.wrap(w - value_w - pad * 2, 34)
+        text.drawOn(c, value_w + pad, (h - text_h) / 2)
 
 
 class HorizontalBarPanel(Flowable):
@@ -1187,6 +1232,14 @@ def build_report():
                          leading=18, textColor=DEWR_NAVY, spaceBefore=14, spaceAfter=8)
     h3 = ParagraphStyle('H3', fontName='Helvetica-Bold', fontSize=11.5,
                          leading=15, textColor=DEWR_DARK_GREY, spaceBefore=10, spaceAfter=6)
+    h4 = ParagraphStyle('H4', fontName='Helvetica-Bold', fontSize=10,
+                         leading=13, textColor=DEWR_DARK_GREY, spaceBefore=8, spaceAfter=4)
+    mini_heading = ParagraphStyle('MiniHeading', fontName='Helvetica-Bold', fontSize=8.8,
+                                  leading=11, textColor=DEWR_DARK_GREY,
+                                  spaceBefore=4, spaceAfter=4)
+    metric_context = ParagraphStyle('MetricContext', fontName='Helvetica-Bold', fontSize=8.3,
+                                    leading=10, textColor=DEWR_DARK_GREY,
+                                    spaceBefore=0, spaceAfter=5)
     body = ParagraphStyle('Body', fontName='Helvetica', fontSize=10,
                            leading=14, textColor=DEWR_DARK_GREY, spaceAfter=8,
                            alignment=TA_JUSTIFY)
@@ -1489,17 +1542,17 @@ def build_report():
     story.append(Paragraph("2.1 ChatGPT had the widest reach; Claude had the strongest value signals", h3))
     story.append(Paragraph(
         "ChatGPT was the access point for most trial users, while Claude showed the strongest "
-        "value signal among users. This suggests the public-tool choice was not simply about "
+        "high-usefulness signal: 46.3% of Claude users rated it very or extremely useful, "
+        "compared with 29.7% for Gemini and 28.6% for ChatGPT. This suggests the public-tool choice was not simply about "
         "uptake; different tools played different roles.", body))
     story.append(sp(8))
     story.append(EvidenceMatrixPanel(
         width,
-        "Measure",
+        "SHARE OF RESPONDENTS",
         ["ChatGPT", "Claude", "Gemini"],
         [
-            ("Used during trial", ["92%", "67%", "61%"], 0),
-            ("Rated moderately useful or better", ["62.5%", "70.7%", "64.9%"], 1),
-            ("Rated very/extremely useful", ["28.6%", "46.3%", "29.7%"], 1),
+            ("Used tool during trial", ["92%", "67%", "61%"], 0),
+            ("Rated at least moderately useful", ["62.5%", "70.7%", "64.9%"], 1),
             ("Wanted continued access", ["54%", "63%", "43%"], 1),
         ],
         first_col_ratio=0.43,
@@ -1513,7 +1566,7 @@ def build_report():
         "administrative workflows. Research, summarising, editing and drafting were the "
         "dominant use cases across the trial.", body))
     story.append(sp(8))
-    story.append(HorizontalBarPanel(width, "TASK TYPE", [
+    story.append(HorizontalBarPanel(width, "SHARE OF RESPONDENTS REPORTING PUBLIC TOOL USAGE PER SPECIFIC TASK", [
         ("Research, problem solving or ideation", 67),
         ("Summarising", 66),
         ("Editing and revision", 62),
@@ -1527,31 +1580,64 @@ def build_report():
         "Claude had the strongest research profile (73% of Claude users), while Gemini was "
         "relatively stronger for editing and revision. ChatGPT had a more balanced profile "
         "across research, summarising, drafting and editing.", body))
+    story.append(Paragraph(
+        "Coding and data work was a smaller but important specialist use case: <b>21%</b> of public-tool "
+        "users used at least one tool for coding or data work, and <b>27%</b> of Claude users used Claude "
+        "for this purpose.", body))
     story.append(sp(8))
 
     # 2.3 Value distribution
-    story.append(Paragraph("2.3 Public-tool value varied by Copilot version type and user experience", h3))
+    story.append(Paragraph("2.3 Public-tool value was strongest for respondents with Copilot Chat/basic and prior Gen AI experience", h3))
     story.append(Paragraph(
-        "Public tools appeared to provide the highest marginal value for Copilot Chat/basic users "
-        "and for users with stronger generative AI capability. Copilot Chat/basic users were more likely "
-        "to see public tools as adding value over Copilot, despite similar weekly usage. The clearest "
-        "experience-related difference was usefulness, where users with some prior Gen AI experience "
-        "or more were more likely to rate at least one public tool useful.", body))
+        "Public-tool value was not evenly distributed. The clearest access-type signal was stronger "
+        "marginal value among Copilot Chat/basic users, while the clearest capability signal was "
+        "stronger reported value among respondents with more prior Gen AI experience.", body))
+    story.append(Paragraph("2.3.1 Copilot Chat/basic vs M365 Copilot users", mini_heading))
+    story.append(sp(4))
+    story.append(HorizontalEvidenceCallout(
+        width,
+        "Added value beyond Copilot",
+        "79%",
+        "of respondents with <b>Copilot Chat/basic</b> reported public Gen AI tools added value beyond Copilot",
+        "vs 63% M365 Copilot",
+    ))
     story.append(sp(6))
-    story.append(TwoEvidenceCardsPanel(width, [
-        {
-            "metric": "Added value beyond Copilot",
-            "value": "79%",
-            "label": "Copilot Chat/basic users said public tools added value beyond Copilot",
-            "comparison": "vs 63% of M365 Copilot users",
-        },
-        {
-            "metric": "Rated useful",
-            "value": "83%",
-            "label": "Users with some prior Gen AI experience or more rated at least one public tool useful",
-            "comparison": "vs 69% with no/basic prior experience",
-        },
-    ]))
+    story.append(Paragraph(
+        "Usefulness was slightly higher for Copilot Chat/basic users (<b>82% vs 78%</b>), while weekly "
+        "use was almost identical (<b>53% vs 52%</b>), suggesting the stronger result reflects perceived "
+        "marginal value rather than higher usage frequency.", body))
+    story.append(Paragraph("2.3.2 Prior Gen AI experience and public-tool value", mini_heading))
+    story.append(sp(4))
+    story.append(HorizontalEvidenceCallout(
+        width,
+        "Significant added value",
+        "91%",
+        "of <b>experienced/highly experienced</b> respondents reported significant added value from a public tool",
+        "vs 73% some prior Gen AI experience and 62% no/basic prior Gen AI experience",
+    ))
+    story.append(sp(3))
+    story.append(source_note(
+        "Note: Results should be read directionally given the smaller no/basic segment."))
+    story.append(sp(3))
+    story.append(Paragraph(
+        "Higher-experience users also reported deeper usefulness: <b>73%</b> rated at least one public tool "
+        "very or extremely useful, compared with <b>46%</b> some prior Gen AI experience and "
+        "<b>39%</b> no/basic prior Gen AI experience.", body))
+    story.append(Paragraph(
+        "They were also more likely to see a public tool outperform Copilot (<b>86% vs 69%</b> for both "
+        "lower-experience groups) and to strongly want continued access (<b>55% vs 31%</b> some prior "
+        "Gen AI experience and <b>15%</b> no/basic prior Gen AI experience).", body))
+    story.append(PageBreak())
+    story.append(Paragraph("2.3.3 Other segment patterns", mini_heading))
+    story.append(sp(4))
+    story.append(Paragraph(
+        "Classification and organisational results added nuance. EL users were more likely than APS users "
+        "to report added value beyond Copilot (<b>78.6% vs 66.7%</b>), while APS users were more likely "
+        "to rate at least one public tool useful (<b>87.9% vs 71.4%</b>).", body))
+    story.append(Paragraph(
+        "Workplace Relations showed the strongest value and continuation signal (<b>85.7%</b> on both), "
+        "while Corporate and Enabling had the strongest regular-use pattern among larger groups "
+        "(<b>75.0%</b> weekly use).", body))
     story.append(PageBreak())
 
     # 2.4 Barriers

@@ -321,29 +321,27 @@ class TimeSavingsPanel(Flowable):
 
         label_w = w * 0.28
         bar_x = pad + label_w
-        bar_w = w - bar_x - 98
+        bar_w = w - bar_x - 112
         bar_h = 11
         max_value = 75
         rows = [
-            ("M365 Copilot", 69, "5.7 hours/week", DEWR_DARK_GREEN),
-            ("Copilot Chat", 34, "2.8 hours/week", DEWR_DARK_GREY),
+            ("M365 Copilot", 69, "5.7 hrs/week", DEWR_DARK_GREEN),
+            ("Copilot Chat", 34, "2.8 hrs/week", DEWR_DARK_GREY),
         ]
         for i, (label, value, weekly, color) in enumerate(rows):
-            y = h - 41 - i * 31
+            y = h - 41 - i * 35
             c.setFillColor(DEWR_DARK_GREY)
             c.setFont("Helvetica-Bold", 8.4)
             c.drawString(pad, y + 1, label)
-            c.setFillColor(DEWR_GREY)
-            c.setFont("Helvetica", 7.3)
-            c.drawString(pad, y - 12, weekly)
 
-            c.setFillColor(HexColor("#E3E5E6"))
-            c.rect(bar_x, y, bar_w, bar_h, fill=1, stroke=0)
             c.setFillColor(color)
             c.rect(bar_x, y, bar_w * (value / max_value), bar_h, fill=1, stroke=0)
-            c.setFillColor(DEWR_NAVY)
-            c.setFont("Helvetica-Bold", 12)
-            c.drawRightString(w - pad, y - 1, f"{value} min/day")
+            c.setFillColor(color)
+            c.setFont("Helvetica-Bold", 13)
+            c.drawRightString(w - pad, y + 5, weekly)
+            c.setFillColor(HexColor("#565B5F"))
+            c.setFont("Helvetica", 7.5)
+            c.drawRightString(w - pad, y - 12, f"{value} min/day")
 
 
 class CopilotEngagementDeltaPanel(Flowable):
@@ -1664,7 +1662,7 @@ def build_report():
         "access: integrated M365 Copilot produces stronger time savings, deeper engagement "
         "and a broader task footprint than Copilot Chat."))
     story.append(ValueSignalsPanel(width, [
-        ("~2x", "average daily time saved using M365 Copilot compared to Copilot Chat"),
+        ("~2x", "average weekly time saved using M365 Copilot compared to Copilot Chat"),
         ("1.8x", "share rating Copilot very/extremely useful for M365 Copilot vs Copilot Chat"),
         ("1.4x", "weekly-or-more use for M365 Copilot vs Copilot Chat"),
     ], primary_count=1))

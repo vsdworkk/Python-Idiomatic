@@ -1257,7 +1257,7 @@ class TaskFootprintExhibit(Flowable):
 
         c.setFillColor(DEWR_DARK_GREY)
         c.setFont("Helvetica-Bold", 7.5)
-        c.drawString(pad, h - 22, "SHARE OF RESPONDENTS REPORTING USE BY TASK TYPE")
+        c.drawString(pad, h - 22, "MEASURE")
         c.setFont("Helvetica", 7.4)
         m365_label = "M365 Copilot"
         chat_label = "Copilot Chat"
@@ -1734,7 +1734,7 @@ def build_report():
     story.append(sp(8))
     story.append(EvidenceMatrixPanel(
         width,
-        "SHARE OF RESPONDENTS",
+        "MEASURE",
         ["ChatGPT", "Claude", "Gemini"],
         [
             ("Used tool during trial", ["92%", "67%", "61%"], 0),
@@ -1822,7 +1822,7 @@ def build_report():
     story.append(sp(5))
     story.append(EvidenceMatrixPanel(
         width,
-        "CLASSIFICATION LEVEL",
+        "MEASURE",
         ["APS", "EL"],
         [
             ("Added value beyond Copilot", ["66.7%", "78.6%"], 1),

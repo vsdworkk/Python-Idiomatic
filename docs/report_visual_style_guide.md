@@ -138,6 +138,79 @@ Alignment rules:
 
 Avoid placing an additional grey card background inside a grey parent panel, because this can create uneven edges or a visible protruding block.
 
+## Comparison Metric Panels
+
+Use this pattern when comparing two or three respondent groups on one headline measure, such as:
+
+- Copilot Chat vs M365 Copilot
+- Prior Gen AI experience groups
+- APS vs EL, if a compact comparison is needed
+
+The current preferred structure is a single full-width soft grey panel with equal-width columns. Do not include a separate title inside the visual if the section heading and paragraph already explain the measure.
+
+Each column should have:
+
+- A centred group label at the top
+- A large centred percentage
+- A short centred supporting label below the percentage
+- No inner card background
+
+Spacing rules:
+
+- Use the same vertical rhythm across all columns in the panel.
+- Group labels should share the same baseline.
+- Percentages should share the same baseline.
+- Supporting labels should share the same baseline.
+- Leave visible space between the group label and the percentage.
+- Leave visible space between the percentage and the supporting label.
+- If a comparison note is used, place it at the bottom of the panel and leave extra breathing room above it.
+- If the note is not necessary, omit it rather than adding a generic title or caption inside the visual.
+
+Current ReportLab positioning standard for these panels:
+
+```text
+panel height: 104 pt
+group label baseline: h - 24
+percentage baseline: h - 56
+supporting-label vertical centre: around y = 34
+optional bottom note baseline: y = 6
+```
+
+Use thin light-grey internal dividers only:
+
+- Two-column panels: one vertical divider between the columns.
+- Three-column panels: two vertical dividers between the columns.
+- Divider colour: `#D7D8D8`
+- Divider weight: `0.5`
+- Divider start/end should be consistent within the panel.
+
+Colour treatment:
+
+- Primary or higher-value result: DEWR green
+- Comparison values: dark grey
+- Group labels and supporting text: dark grey
+- Panel background: `#F7F8FA`
+
+Example two-column access panel:
+
+```text
+Copilot Chat                 M365 Copilot
+79%                          63%
+reported public tools        reported public tools
+added value beyond Copilot   added value beyond Copilot
+
++16 pts higher among Copilot Chat users
+```
+
+Example three-column prior-experience panel:
+
+```text
+Experienced/highly experienced   Some prior experience   No/basic experience
+91%                              73%                     62%
+reported significant             reported significant    reported significant
+added value                      added value             added value
+```
+
 ## Colour Use
 
 Use the DEWR green for the stronger M365 value where it supports the story.
@@ -192,4 +265,3 @@ For each future evidence visual:
 5. Use green for the primary/high-performing value and dark grey for the comparison value.
 6. Keep dividers thin and internal.
 7. Put notes immediately below the visual.
-

@@ -25,7 +25,9 @@ DEWR_LIGHT_GREY = HexColor("#D7D8D8")
 DEWR_LIME = HexColor("#B5C427")
 DEWR_RED = HexColor("#91040D")
 
-OUTPUT_PATH = "/Users/python/Documents/Public AI Trial /Outputs/DEWR_Public_AI_B.pdf"
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "Outputs")
+OUTPUT_PATH = os.path.join(OUTPUT_DIR, "DEWR_Public_AI_B.pdf")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 class CalloutBox(Flowable):
@@ -165,7 +167,7 @@ class ValueSignalsPanel(Flowable):
         self.items = items
         self.title = title
         self.primary_count = len(items) if primary_count is None else primary_count
-        self._height = 100 if title else 74
+        self._height = 112 if title else 94
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -190,8 +192,8 @@ class ValueSignalsPanel(Flowable):
             c.line(pad, h - 31, w - pad, h - 31)
 
         col_w = (w - 2 * pad) / len(self.items)
-        value_y = 38 if not self.title else 46
-        label_top_y = 25 if not self.title else 32
+        value_y = h - (44 if not self.title else 54)
+        label_top_y = value_y - 16
         for i, (value, label) in enumerate(self.items):
             x = pad + i * col_w
             cx = x + col_w / 2
@@ -210,7 +212,7 @@ class ValueSignalsPanel(Flowable):
                 alignment=TA_CENTER,
                 textColor=DEWR_DARK_GREY,
             ))
-            _, label_h = p.wrap(col_w - 14, 28)
+            _, label_h = p.wrap(col_w - 14, 48)
             p.drawOn(c, x + 7, label_top_y - label_h)
 
 
@@ -324,7 +326,7 @@ class TimeSavingsPanel(Flowable):
         max_value = 75
         rows = [
             ("M365 Copilot", 69, "5.7 hours/week", DEWR_DARK_GREEN),
-            ("Copilot Chat/basic", 34, "2.8 hours/week", DEWR_DARK_GREY),
+            ("Copilot Chat", 34, "2.8 hours/week", DEWR_DARK_GREY),
         ]
         for i, (label, value, weekly, color) in enumerate(rows):
             y = h - 41 - i * 31
@@ -376,7 +378,7 @@ class CopilotEngagementDeltaPanel(Flowable):
         c.setFillColor(DEWR_DARK_GREY)
         c.setFont("Helvetica-Bold", 7.2)
         c.drawString(pad, head_y, "MEASURE")
-        for i, col in enumerate(["M365", "CHAT/BASIC"]):
+        for i, col in enumerate(["M365", "CHAT"]):
             c.drawCentredString(first_w + i * col_w + col_w / 2, head_y, col)
 
         c.setStrokeColor(DEWR_LIGHT_GREY)
@@ -502,7 +504,7 @@ class MarginalValuePanel(Flowable):
         m365_x = w * 0.78
 
         c.setFont("Helvetica-Bold", 7.0)
-        c.drawCentredString(chat_x, h - 20, "CHAT/BASIC")
+        c.drawCentredString(chat_x, h - 20, "COPILOT CHAT")
         c.drawCentredString(m365_x, h - 20, "M365 COPILOT")
 
         for y, metric, chat_value, m365_value, highlight_idx in [
@@ -520,7 +522,7 @@ class MarginalValuePanel(Flowable):
 
         c.setFont("Helvetica-Bold", 7.0)
         c.setFillColor(DEWR_DARK_GREY)
-        c.drawCentredString(chat_x, h / 2 - 17, "CHAT/BASIC")
+        c.drawCentredString(chat_x, h / 2 - 17, "COPILOT CHAT")
         c.drawCentredString(m365_x, h / 2 - 17, "M365 COPILOT")
 
         c.setFont("Helvetica", 7.8)
@@ -639,6 +641,117 @@ class HorizontalEvidenceCallout(Flowable):
         text = Paragraph(f"{self.text} <b>{self.comparison}</b>", text_style)
         text_w, text_h = text.wrap(w - value_w - pad * 2, 34)
         text.drawOn(c, value_w + pad, (h - text_h) / 2)
+
+
+class AccessComparisonPanel(Flowable):
+    """Two-column comparison panel for Copilot access-type metrics."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 104
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+        inner_top = h - 16
+        col_w = (w - 2 * pad) / 2
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(w / 2, 18, w / 2, inner_top)
+
+        columns = [
+            ("Copilot Chat", "79%", "reported public tools added value beyond Copilot", DEWR_DARK_GREEN),
+            ("M365 Copilot", "63%", "reported public tools added value beyond Copilot", DEWR_DARK_GREY),
+        ]
+        label_style = ParagraphStyle(
+            "access_comparison_label",
+            fontName="Helvetica",
+            fontSize=7.8,
+            leading=8.8,
+            alignment=TA_CENTER,
+            textColor=DEWR_DARK_GREY,
+        )
+        for i, (name, value, label, color) in enumerate(columns):
+            x = pad + i * col_w
+            cx = x + col_w / 2
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont("Helvetica-Bold", 8.0)
+            c.drawCentredString(cx, h - 24, name)
+            c.setFillColor(color)
+            c.setFont("Helvetica-Bold", 24)
+            c.drawCentredString(cx, h - 56, value)
+            p = Paragraph(label, label_style)
+            _, label_h = p.wrap(col_w - 34, 22)
+            p.drawOn(c, x + 17, 34 - label_h / 2)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.3)
+        c.drawCentredString(w / 2, 6, "+16 pts higher among Copilot Chat users")
+
+
+class PriorExperienceComparisonPanel(Flowable):
+    """Three-column comparison panel for prior Gen AI experience groups."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 104
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+        inner_top = h - 16
+        col_w = (w - 2 * pad) / 3
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        for i in (1, 2):
+            x = pad + i * col_w
+            c.line(x, 16, x, inner_top)
+
+        columns = [
+            ("Experienced/highly experienced", "91%", "reported significant added value", DEWR_DARK_GREEN),
+            ("Some prior experience", "73%", "reported significant added value", DEWR_DARK_GREY),
+            ("No/basic experience", "62%", "reported significant added value", DEWR_DARK_GREY),
+        ]
+        label_style = ParagraphStyle(
+            "prior_experience_comparison_label",
+            fontName="Helvetica",
+            fontSize=7.4,
+            leading=8.4,
+            alignment=TA_CENTER,
+            textColor=DEWR_DARK_GREY,
+        )
+        for i, (name, value, label, color) in enumerate(columns):
+            x = pad + i * col_w
+            cx = x + col_w / 2
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont("Helvetica-Bold", 7.0)
+            c.drawCentredString(cx, h - 24, name)
+            c.setFillColor(color)
+            c.setFont("Helvetica-Bold", 24)
+            c.drawCentredString(cx, h - 56, value)
+            p = Paragraph(label, label_style)
+            _, label_h = p.wrap(col_w - 24, 22)
+            p.drawOn(c, x + 12, 27 - label_h / 2)
 
 
 class HorizontalBarPanel(Flowable):
@@ -1147,7 +1260,7 @@ class TaskFootprintExhibit(Flowable):
         c.drawString(pad, h - 22, "SHARE OF RESPONDENTS REPORTING USE BY TASK TYPE")
         c.setFont("Helvetica", 7.4)
         m365_label = "M365 Copilot"
-        chat_label = "Chat/basic"
+        chat_label = "Copilot Chat"
         marker_gap = 8
         item_gap = 18
         m365_w = c.stringWidth(m365_label, "Helvetica", 7.4)
@@ -1385,7 +1498,7 @@ def build_report():
         ("Evaluation findings", "6"),
         ("    1. Copilot productivity baseline", "6"),
         ("    2. Public Gen AI uptake, use and productivity", "8"),
-        ("    3. Concerns, risks and safeguards", "11"),
+        ("    3. Concerns, risks and safeguards", "13"),
         ("Approach and methodology", "15"),
         ("Appendix", "16"),
     ]
@@ -1454,7 +1567,7 @@ def build_report():
     # Stat boxes row
     stat_data = [
         ("69 min/day", "M365 daily saving", DEWR_NAVY),
-        ("34 min/day", "Chat/basic daily saving", DEWR_BLUE),
+        ("34 min/day", "Copilot Chat daily saving", DEWR_BLUE),
         ("80%", "Rated tool useful", DEWR_GREEN),
         ("72%", "Continued access", DEWR_DARK_GREEN),
     ]
@@ -1485,7 +1598,7 @@ def build_report():
         "usefulness (71%) and continuation intent (63%)."))
     story.append(sp(6))
     story.append(key_finding(
-        "Public tools provided clearer marginal value for Copilot Chat/basic users "
+        "Public tools provided clearer marginal value for Copilot Chat users "
         "than for M365 Copilot users."))
     story.append(sp(6))
     story.append(key_finding(
@@ -1508,7 +1621,7 @@ def build_report():
     recs = [
         ("Targeted access expansion", [
             "Consider providing broader access to public Gen AI tools, prioritising user groups that showed "
-            "the strongest productivity gains, particularly experienced Gen AI users and Copilot Chat/basic users.",
+            "the strongest productivity gains, particularly experienced Gen AI users and Copilot Chat users.",
             "Evaluate whether paid tiers of public tools (especially Claude) would address free-tier "
             "limitations that constrained trial benefits.",
         ]),
@@ -1549,11 +1662,11 @@ def build_report():
     story.append(callout(
         "Copilot already delivers material productivity value, but benefits are tiered by "
         "access: integrated M365 Copilot produces stronger time savings, deeper engagement "
-        "and a broader task footprint than Copilot Chat/basic access."))
+        "and a broader task footprint than Copilot Chat."))
     story.append(ValueSignalsPanel(width, [
-        ("~2x", "Avg daily time saved"),
-        ("1.8x", "Rated very/extremely useful"),
-        ("1.4x", "Used at least weekly"),
+        ("~2x", "average daily time saved using M365 Copilot compared to Copilot Chat"),
+        ("1.8x", "share rating Copilot very/extremely useful for M365 Copilot vs Copilot Chat"),
+        ("1.4x", "weekly-or-more use for M365 Copilot vs Copilot Chat"),
     ], primary_count=1))
     story.append(sp(12))
 
@@ -1561,8 +1674,8 @@ def build_report():
     story.append(Paragraph("1.1 M365 Copilot access set a higher productivity baseline", s1_h3))
     story.append(Paragraph(
         "M365 Copilot users reported average time savings of 69 minutes per day, compared "
-        "with 34 minutes per day for Copilot Chat/basic users. This means M365 Copilot users reported "
-        "roughly twice the daily time savings of Copilot Chat/basic users.", s1_body))
+        "with 34 minutes per day for Copilot Chat users. This means M365 Copilot users reported "
+        "roughly twice the daily time savings of Copilot Chat users.", s1_body))
     story.append(sp(8))
     story.append(TimeSavingsPanel(width))
     story.append(sp(12))
@@ -1583,9 +1696,9 @@ def build_report():
     story.append(KeepTogether([
         Paragraph("1.3 M365 Copilot users reported a broader task footprint", s1_h3),
         Paragraph(
-            "Across M365 Copilot and Copilot Chat/basic users, Copilot was used most often for summarising, editing and "
+            "Across M365 Copilot and Copilot Chat users, Copilot was used most often for summarising, editing and "
             "revision, and drafting. M365 Copilot users reported using Copilot across more task "
-            "types on average than Copilot Chat/basic users. While both user groups used Copilot "
+            "types on average than Copilot Chat users. While both user groups used Copilot "
             "for the same broad categories of work, M365 Copilot users were more likely to report use for "
             "research, problem solving and idea generation, and for planning or meeting preparation. "
             "These tasks are typically more complex than drafting or summarising alone, suggesting "
@@ -1601,7 +1714,7 @@ def build_report():
     story.append(Paragraph("2. Public Gen AI uptake, use and productivity", h2))
     story.append(callout(
         "Public Gen AI tools created clear value for many trial users, but benefits were uneven: "
-        "strongest for experienced users, staff with Copilot Chat/basic access, and tasks where "
+        "strongest for experienced users, staff with Copilot Chat, and tasks where "
         "public tools offered capability or quality beyond Copilot."))
     story.append(ValueSignalsPanel(width, [
         ("80%", "Rated at least one public tool useful"),
@@ -1626,6 +1739,7 @@ def build_report():
         [
             ("Used tool during trial", ["92%", "67%", "61%"], 0),
             ("Rated at least moderately useful", ["62.5%", "70.7%", "64.9%"], 1),
+            ("Rated very/extremely useful", ["28.6%", "46.3%", "29.7%"], 1),
             ("Wanted continued access", ["54%", "63%", "43%"], 1),
         ],
         first_col_ratio=0.43,
@@ -1659,63 +1773,92 @@ def build_report():
         "for this purpose.", body))
     story.append(sp(8))
 
-    # 2.3 Value distribution
-    story.append(Paragraph("2.3 Public-tool value was strongest for respondents with Copilot Chat/basic and prior Gen AI experience", h3))
+    # 2.3 Access-type variation
+    story.append(Paragraph("2.3 Copilot Chat users reported stronger marginal value from public tools", h3))
     story.append(Paragraph(
-        "Public-tool value was not evenly distributed. The clearest access-type signal was stronger "
-        "marginal value among Copilot Chat/basic users, while the clearest capability signal was "
-        "stronger reported value among respondents with more prior Gen AI experience.", body))
-    story.append(Paragraph("2.3.1 Copilot Chat/basic vs M365 Copilot users", mini_heading))
+        "Public-tool value was not evenly distributed by Copilot access type. The clearest "
+        "access-type signal was stronger reported marginal value among Copilot Chat users, "
+        "while M365 Copilot users already had access to a more integrated Microsoft product.", body))
     story.append(sp(4))
-    story.append(HorizontalEvidenceCallout(
-        width,
-        "Added value beyond Copilot",
-        "79%",
-        "of respondents with <b>Copilot Chat/basic</b> reported public Gen AI tools added value beyond Copilot",
-        "vs 63% M365 Copilot",
-    ))
+    story.append(AccessComparisonPanel(width))
     story.append(sp(6))
     story.append(Paragraph(
-        "Usefulness was slightly higher for Copilot Chat/basic users (<b>82% vs 78%</b>), while weekly "
+        "Usefulness was slightly higher for Copilot Chat users (<b>82% vs 78%</b>), while weekly "
         "use was almost identical (<b>53% vs 52%</b>), suggesting the stronger result reflects perceived "
         "marginal value rather than higher usage frequency.", body))
-    story.append(Paragraph("2.3.2 Prior Gen AI experience and public-tool value", mini_heading))
+
+    # 2.4 Prior experience variation
+    story.append(KeepTogether([
+        Paragraph("2.4 Prior Gen AI experience was associated with stronger reported value", h3),
+        Paragraph(
+            "Prior Gen AI experience was also associated with stronger reported outcomes. Experienced "
+            "and highly experienced respondents were more likely to report significant added value from "
+            "public tools than respondents with lower levels of prior Gen AI experience.", body),
+        sp(4),
+        PriorExperienceComparisonPanel(width),
+        sp(3),
+        source_note("Note: Results should be read directionally given the smaller no/basic segment."),
+        sp(3),
+        Paragraph(
+            "Higher-experience users also reported deeper usefulness: <b>73%</b> rated at least one public tool "
+            "very or extremely useful, compared with <b>46%</b> some prior Gen AI experience and "
+            "<b>39%</b> no/basic prior Gen AI experience.", body),
+        Paragraph(
+            "They were also more likely to rate at least one public tool better than Copilot on at least "
+            "one comparison dimension (<b>86% vs 69%</b> for both lower-experience groups) and to strongly "
+            "want continued access (<b>55% vs 31%</b> some prior Gen AI experience and <b>15%</b> no/basic "
+            "prior Gen AI experience).", body),
+    ]))
+
+    # 2.5 Other segment variation
+    story.append(Paragraph("2.5 Reported value varied by classification and organisational group", h3))
     story.append(sp(4))
-    story.append(HorizontalEvidenceCallout(
+    story.append(Paragraph("Classification level", mini_heading))
+    story.append(Paragraph(
+        "EL users were more likely than APS users to report that public tools provided value over and above "
+        "Copilot (<b>78.6% vs 66.7%</b>) and were slightly more likely to use public tools weekly or more "
+        "(<b>53.6% vs 51.5%</b>). APS users, however, were more likely to rate at least one public tool "
+        "as useful (<b>87.9% vs 71.4%</b>).", body))
+    story.append(sp(5))
+    story.append(EvidenceMatrixPanel(
         width,
-        "Significant added value",
-        "91%",
-        "of <b>experienced/highly experienced</b> respondents reported significant added value from a public tool",
-        "vs 73% some prior Gen AI experience and 62% no/basic prior Gen AI experience",
+        "CLASSIFICATION LEVEL",
+        ["APS", "EL"],
+        [
+            ("Added value beyond Copilot", ["66.7%", "78.6%"], 1),
+            ("Used weekly or more", ["51.5%", "53.6%"], 1),
+            ("Rated at least moderately useful", ["87.9%", "71.4%"], 0),
+        ],
+        first_col_ratio=0.50,
     ))
-    story.append(sp(3))
-    story.append(source_note(
-        "Note: Results should be read directionally given the smaller no/basic segment."))
-    story.append(sp(3))
-    story.append(Paragraph(
-        "Higher-experience users also reported deeper usefulness: <b>73%</b> rated at least one public tool "
-        "very or extremely useful, compared with <b>46%</b> some prior Gen AI experience and "
-        "<b>39%</b> no/basic prior Gen AI experience.", body))
-    story.append(Paragraph(
-        "They were also more likely to rate at least one public tool better than Copilot on at least "
-        "one comparison dimension (<b>86% vs 69%</b> for both lower-experience groups) and to strongly "
-        "want continued access (<b>55% vs 31%</b> some prior Gen AI experience and <b>15%</b> no/basic "
-        "prior Gen AI experience).", body))
+    story.append(sp(8))
     story.append(PageBreak())
-    story.append(Paragraph("2.3.3 Other segment patterns", mini_heading))
-    story.append(sp(4))
+    story.append(Paragraph("Organisational group", mini_heading))
     story.append(Paragraph(
-        "Classification and organisational results added nuance. EL users were more likely than APS users "
-        "to report added value beyond Copilot (<b>78.6% vs 66.7%</b>), while APS users were more likely "
-        "to rate at least one public tool useful (<b>87.9% vs 71.4%</b>).", body))
-    story.append(Paragraph(
-        "Workplace Relations showed the strongest value and continuation signal (<b>85.7%</b> on both), "
-        "while Corporate and Enabling had the strongest regular-use pattern among larger groups "
-        "(<b>75.0%</b> weekly use).", body))
+        "Reported value also varied across groups. Workplace Relations recorded the strongest added-value "
+        "result (<b>85.7%</b>), while Employment and Workforce and Corporate and Enabling recorded high "
+        "usefulness results (<b>84.2%</b> and <b>83.3%</b> respectively). Skill and Training recorded "
+        "comparatively weaker results across both measures.", body))
+    story.append(sp(5))
+    story.append(EvidenceMatrixPanel(
+        width,
+        "GROUP",
+        ["Added value beyond Copilot", "Rated at least moderately useful"],
+        [
+            ("Corporate and Enabling", ["66.7%", "83.3%"], 1),
+            ("Employment and Workforce", ["73.7%", "84.2%"], 1),
+            ("Skill and Training", ["53.8%", "69.2%"], None),
+            ("Workplace Relations", ["85.7%", "78.6%"], 0),
+        ],
+        first_col_ratio=0.32,
+    ))
+    story.append(source_note(
+        "Note: Jobs and Skills Australia was excluded because of low sample size (n=3)."))
     story.append(sp(4))
 
-    # 2.4 Barriers
-    story.append(Paragraph("2.4 Limitations were common, led by lack of integration with internal systems and request limits", h3))
+    # 2.6 Barriers
+    story.append(PageBreak())
+    story.append(Paragraph("2.6 Limitations were common, led by lack of integration and request limits", h3))
     story.append(sp(4))
     story.append(HorizontalEvidenceCallout(
         width,

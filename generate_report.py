@@ -27,6 +27,7 @@ DEWR_RED = HexColor("#91040D")
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "Outputs")
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, "DEWR_Public_AI_B.pdf")
+COVER_LOCKUP_PATH = os.path.join(os.path.dirname(__file__), "assets", "dewr_cover_lockup_white.png")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -817,6 +818,127 @@ class HorizontalBarPanel(Flowable):
             c.drawRightString(w - pad, y - 1, f"{value:g}{self.value_suffix}")
 
 
+class PublicToolTaskProfilePanel(Flowable):
+    """Task-by-tool dot plot showing how public tools were used for different work types."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self.rows = [
+            ("Summarising", [55.4, 56.8, 56.1]),
+            ("Editing and revision", [50.0, 56.8, 51.2]),
+            ("Drafting", [51.8, 48.6, 53.7]),
+            ("Research, problem solving or ideation", [60.7, 67.6, 73.2]),
+            ("General administrative tasks", [21.4, 24.3, 22.0]),
+            ("Planning or meeting preparation", [10.7, 8.1, 19.5]),
+            ("Coding or data work", [10.7, 13.5, 26.8]),
+        ]
+        self.series = [
+            ("ChatGPT", HexColor("#000000")),
+            ("Gemini", DEWR_LIME),
+            ("Claude", DEWR_DARK_GREEN),
+        ]
+        self.max_value = 80
+        self.row_h = 23
+        self._height = 226
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = 16
+
+        c.setFillColor(HexColor("#F7F8FA"))
+        c.rect(0, 0, w, h, fill=1, stroke=0)
+
+        label_w = w * 0.35
+        axis_x = pad + label_w
+        axis_w = w - axis_x - 24
+        head_y = h - 22
+        tick_y = h - 43
+        top_y = h - 62
+        bottom_y = top_y - self.row_h * (len(self.rows) - 1)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont("Helvetica-Bold", 7.5)
+        c.drawString(pad, head_y, "SHARE OF RESPONDENTS PER TOOL REPORTING EACH TASK")
+
+        c.setFont("Helvetica", 7.2)
+        marker_gap = 8
+        item_gap = 16
+        legend_w = 0
+        for name, _ in self.series:
+            legend_w += 5 + marker_gap + c.stringWidth(name, "Helvetica", 7.2) + item_gap
+        legend_w -= item_gap
+        legend_x = w - pad - legend_w
+        for name, color in self.series:
+            c.setFillColor(color)
+            c.circle(legend_x, head_y + 2, 2.6, fill=1, stroke=0)
+            c.setFillColor(DEWR_DARK_GREY)
+            c.drawString(legend_x + marker_gap, head_y - 1, name)
+            legend_x += 5 + marker_gap + c.stringWidth(name, "Helvetica", 7.2) + item_gap
+
+        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setLineWidth(0.5)
+        c.line(pad, h - 36, w - pad, h - 36)
+
+        label_style = ParagraphStyle(
+            "public_tool_task_label",
+            fontName="Helvetica",
+            fontSize=7.5,
+            leading=8.5,
+            textColor=DEWR_NAVY,
+        )
+        label_bold_style = ParagraphStyle(
+            "public_tool_task_label_bold",
+            parent=label_style,
+            fontName="Helvetica-Bold",
+        )
+
+        for r_idx, (label, values) in enumerate(self.rows):
+            y = top_y - r_idx * self.row_h
+
+            important_label = label in {
+                "Research, problem solving or ideation",
+                "Coding or data work",
+            }
+            p = Paragraph(label, label_bold_style if important_label else label_style)
+            p.wrap(label_w - 8, 18)
+            p.drawOn(c, pad, y - 6)
+
+            max_value = max(values)
+            positions = [axis_x + axis_w * (value / self.max_value) for value in values]
+            min_gap = 7
+            ordered = sorted(range(len(positions)), key=lambda idx: positions[idx])
+            for left_idx, right_idx in zip(ordered, ordered[1:]):
+                gap = positions[right_idx] - positions[left_idx]
+                if gap < min_gap:
+                    adjust = (min_gap - gap) / 2
+                    positions[left_idx] -= adjust
+                    positions[right_idx] += adjust
+
+            for i, value in enumerate(values):
+                highlighted = value == max_value
+                color = self.series[i][1]
+                x = positions[i]
+                c.setFillColor(color)
+                c.circle(x, y, 3.5 if highlighted else 3.0, fill=1, stroke=0)
+
+                if highlighted:
+                    label_text = f"{value:.1f}%"
+                    c.setFont("Helvetica-Bold", 7.0)
+                    text_w = c.stringWidth(label_text, "Helvetica-Bold", 7.0)
+                    label_x = x + 5
+                    c.setFillColor(color)
+                    if label_x + text_w > axis_x + axis_w + 38:
+                        c.drawRightString(x - 5, y - 2, label_text)
+                    else:
+                        c.drawString(label_x, y - 2, label_text)
+
+
 class SafeguardPrioritiesPanel(Flowable):
     """Three-column safeguard framework panel."""
     def __init__(self, width):
@@ -1381,6 +1503,66 @@ def header_footer(canvas, doc):
     canvas.restoreState()
 
 
+def cover_page(canvas, doc):
+    canvas.saveState()
+    page_w, page_h = A4
+    left = 64
+    cover_green = HexColor("#9AAB64")
+
+    canvas.setFillColor(DEWR_DARK_GREY)
+    canvas.rect(0, 0, page_w, page_h, fill=1, stroke=0)
+
+    canvas.setFillColor(DEWR_GREEN)
+    canvas.rect(0, 0, page_w, 10*mm, fill=1, stroke=0)
+
+    if os.path.exists(COVER_LOCKUP_PATH):
+        canvas.drawImage(
+            COVER_LOCKUP_PATH,
+            left,
+            page_h - 154,
+            width=196,
+            height=61,
+            mask="auto",
+        )
+    else:
+        canvas.setFillColor(white)
+        canvas.setFont("Helvetica-Bold", 11)
+        canvas.drawString(left, page_h - 112, "Australian Government")
+        canvas.setLineWidth(0.6)
+        canvas.setStrokeColor(white)
+        canvas.line(left, page_h - 118, left + 180, page_h - 118)
+        canvas.setFont("Helvetica-Bold", 10)
+        canvas.drawString(left, page_h - 135, "Department of Employment")
+        canvas.drawString(left, page_h - 148, "and Workplace Relations")
+
+    title_style = ParagraphStyle(
+        "CoverPageTitle",
+        fontName="Helvetica-Bold",
+        fontSize=26,
+        leading=34,
+        textColor=white,
+    )
+    title = Paragraph("Evaluation of the Public<br/>Generative AI Trial", title_style)
+    title.wrap(page_w - left - 64, 120)
+    title.drawOn(canvas, left, page_h - 285)
+
+    subtitle_style = ParagraphStyle(
+        "CoverPageSubtitle",
+        fontName="Helvetica",
+        fontSize=17,
+        leading=25,
+        textColor=cover_green,
+    )
+    subtitle = Paragraph("Summary of evaluation findings", subtitle_style)
+    subtitle.wrap(page_w - left - 64, 80)
+    subtitle.drawOn(canvas, left, page_h - 390)
+
+    canvas.setFillColor(cover_green)
+    canvas.setFont("Helvetica", 16)
+    canvas.drawString(left, page_h - 520, "May 2026")
+    canvas.restoreState()
+
+
 def build_report():
     doc = SimpleDocTemplate(
         OUTPUT_PATH,
@@ -1471,19 +1653,6 @@ def build_report():
     # ==============================
     # COVER PAGE
     # ==============================
-    story.append(Spacer(1, 60*mm))
-    story.append(HRFlowable(width="100%", thickness=3, color=DEWR_NAVY))
-    story.append(sp(6))
-    story.append(Paragraph("Evaluation of the Public<br/>Generative AI Trial", title_style))
-    story.append(Paragraph("Summary of evaluation findings", subtitle_style))
-    story.append(sp(6))
-    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
-    story.append(sp(12))
-    story.append(Paragraph("Department of Employment and Workplace Relations", ParagraphStyle(
-        'CoverDept', fontName='Helvetica', fontSize=11, leading=14, textColor=DEWR_DARK_GREY)))
-    story.append(sp(6))
-    story.append(Paragraph("May 2026", ParagraphStyle(
-        'CoverDate', fontName='Helvetica', fontSize=10, leading=12, textColor=DEWR_GREY)))
     story.append(PageBreak())
 
     # ==============================
@@ -1665,9 +1834,9 @@ def build_report():
         "access: integrated M365 Copilot produces stronger time savings, deeper engagement "
         "and a broader task footprint than Copilot Chat."))
     story.append(ValueSignalsPanel(width, [
-        ("2.0x", "average weekly time saved using M365 Copilot compared to Copilot Chat"),
-        ("1.8x", "share rating Copilot very/extremely useful for M365 Copilot vs Copilot Chat"),
-        ("1.4x", "weekly-or-more use for M365 Copilot vs Copilot Chat"),
+        ("2.0x", "M365 Copilot users reported twice as much average weekly time saved as Copilot Chat users"),
+        ("1.8x", "M365 Copilot users were 1.8x as likely to rate Copilot very or extremely useful"),
+        ("1.4x", "M365 Copilot users were 1.4x as likely to use Copilot weekly or more often"),
     ], primary_count=1))
     story.append(sp(12))
 
@@ -1753,25 +1922,20 @@ def build_report():
         "Use clustered around general knowledge-work tasks rather than specialised or "
         "administrative workflows. Research, summarising, editing and drafting were the "
         "dominant use cases across the trial.", body))
+    story.append(Paragraph(
+        "Tool use profiles varied by task. Claude had the strongest research profile, with "
+        "73.2% of Claude users using it for research, problem solving or generating ideas. "
+        "Claude was also notably higher for coding or data work at 26.8%, compared with 13.5% "
+        "for Gemini and 10.7% for ChatGPT.", body))
+    story.append(Paragraph(
+        "Gemini was strongest for editing and revision, at 56.8%, while ChatGPT showed a "
+        "relatively balanced profile across summarising, drafting, editing and research.", body))
     story.append(sp(8))
-    story.append(HorizontalBarPanel(width, "SHARE OF RESPONDENTS REPORTING PUBLIC TOOL USAGE PER SPECIFIC TASK", [
-        ("Research, problem solving or ideation", 67),
-        ("Summarising", 66),
-        ("Editing and revision", 62),
-        ("Drafting", 61),
-        ("General administrative tasks", 28),
-        ("Coding or data work", 21),
-        ("Planning and meeting preparation", 20),
-    ], max_value=100, primary_count=4, row_h=16))
-    story.append(sp(6))
-    story.append(Paragraph(
-        "Claude had the strongest research profile (73% of Claude users), while Gemini was "
-        "relatively stronger for editing and revision. ChatGPT had a more balanced profile "
-        "across research, summarising, drafting and editing.", body))
-    story.append(Paragraph(
-        "Coding and data work was a smaller but important specialist use case: <b>21%</b> of public-tool "
-        "users used at least one tool for coding or data work, and <b>27%</b> of Claude users used Claude "
-        "for this purpose.", body))
+    story.append(PublicToolTaskProfilePanel(width))
+    story.append(sp(4))
+    story.append(source_note(
+        "Note: Percentages are based on users of each respective tool: ChatGPT n=56; Gemini n=37; Claude n=41. "
+        "Labelled values indicate the highest tool-specific share for each task. Source: DEWR Public Generative AI Trial survey, 2026."))
     story.append(sp(8))
 
     # 2.3 Access-type variation
@@ -2085,7 +2249,7 @@ def build_report():
         story.append(sp(4))
 
     # Build
-    doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
+    doc.build(story, onFirstPage=cover_page, onLaterPages=header_footer)
     print(f"Report generated: {OUTPUT_PATH}")
 
 

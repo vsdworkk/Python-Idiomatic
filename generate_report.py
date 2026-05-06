@@ -79,7 +79,11 @@ class StatBox(Flowable):
         self.canv.setFillColor(self.color)
         self.canv.roundRect(0, 0, self.box_width, 55, 4, fill=1, stroke=0)
         self.canv.setFillColor(white)
-        self.canv.setFont("Helvetica-Bold", 20)
+        stat_size = 20
+        max_stat_width = self.box_width - 24
+        while stat_size > 14 and self.canv.stringWidth(self.stat, "Helvetica-Bold", stat_size) > max_stat_width:
+            stat_size -= 1
+        self.canv.setFont("Helvetica-Bold", stat_size)
         self.canv.drawString(12, 28, self.stat)
         self.canv.setFont("Helvetica", 9)
         self.canv.drawString(12, 12, self.label)
@@ -325,8 +329,8 @@ class TimeSavingsPanel(Flowable):
         bar_h = 11
         max_value = 75
         rows = [
-            ("M365 Copilot", 69, "5.7 hrs/week", DEWR_DARK_GREEN),
-            ("Copilot Chat", 34, "2.8 hrs/week", DEWR_DARK_GREY),
+            ("M365 Copilot", 68.7, "5.7 hrs/week", DEWR_DARK_GREEN),
+            ("Copilot Chat", 33.8, "2.8 hrs/week", DEWR_DARK_GREY),
         ]
         for i, (label, value, weekly, color) in enumerate(rows):
             y = h - 41 - i * 35
@@ -350,9 +354,9 @@ class CopilotEngagementDeltaPanel(Flowable):
         Flowable.__init__(self)
         self.box_width = width
         self.rows = [
-            ("Rated very/extremely useful", "67%", "37%"),
-            ("Used at least weekly", "80%", "56%"),
-            ("Used daily or most of day", "63%", "27%"),
+            ("Rated very/extremely useful", "66.7%", "36.6%"),
+            ("Used at least weekly", "80.0%", "56.1%"),
+            ("Used daily or most of day", "63.3%", "26.8%"),
         ]
         self._height = 122
 
@@ -1223,16 +1227,15 @@ class TaskFootprintExhibit(Flowable):
         Flowable.__init__(self)
         self.box_width = width
         self._height = 230
-        # Non-highlighted values are estimated from the source chart provided
-        # by the user. Highlighted values are text-confirmed in the source notes.
+        # Corrected task-use values supplied from the validated survey table.
         self.rows = [
-            ("Summarising", 86, 76, False),
-            ("Editing and revision", 72, 66, False),
-            ("Drafting", 71, 61, False),
-            ("Research, problem solving or generating ideas", 67, 44, True),
-            ("General administrative tasks", 47, 38, False),
-            ("Planning or meeting preparation", 33, 15, True),
-            ("Coding or data work", 24, 20, False),
+            ("Summarising", 83.3, 73.2, False),
+            ("Editing and revision", 70.0, 63.4, False),
+            ("Drafting", 70.0, 65.9, False),
+            ("Research, problem solving or generating ideas", 66.7, 43.9, True),
+            ("General administrative tasks", 46.7, 41.5, False),
+            ("Planning or meeting preparation", 33.3, 14.6, True),
+            ("Coding or data work", 23.3, 19.5, False),
         ]
 
     def wrap(self, availWidth, availHeight):
@@ -1564,8 +1567,8 @@ def build_report():
 
     # Stat boxes row
     stat_data = [
-        ("69 min/day", "M365 daily saving", DEWR_NAVY),
-        ("34 min/day", "Copilot Chat daily saving", DEWR_BLUE),
+        ("68.7 min/day", "M365 daily saving", DEWR_NAVY),
+        ("33.8 min/day", "Copilot Chat daily saving", DEWR_BLUE),
         ("80%", "Rated tool useful", DEWR_GREEN),
         ("72%", "Continued access", DEWR_DARK_GREEN),
     ]
@@ -1662,7 +1665,7 @@ def build_report():
         "access: integrated M365 Copilot produces stronger time savings, deeper engagement "
         "and a broader task footprint than Copilot Chat."))
     story.append(ValueSignalsPanel(width, [
-        ("~2x", "average weekly time saved using M365 Copilot compared to Copilot Chat"),
+        ("2.0x", "average weekly time saved using M365 Copilot compared to Copilot Chat"),
         ("1.8x", "share rating Copilot very/extremely useful for M365 Copilot vs Copilot Chat"),
         ("1.4x", "weekly-or-more use for M365 Copilot vs Copilot Chat"),
     ], primary_count=1))
@@ -1671,8 +1674,8 @@ def build_report():
     # Time savings
     story.append(Paragraph("1.1 M365 Copilot access set a higher productivity baseline", s1_h3))
     story.append(Paragraph(
-        "M365 Copilot users reported average time savings of 69 minutes per day, compared "
-        "with 34 minutes per day for Copilot Chat users. This means M365 Copilot users reported "
+        "M365 Copilot users reported average time savings of 68.7 minutes per day, compared "
+        "with 33.8 minutes per day for Copilot Chat users. This means M365 Copilot users reported "
         "roughly twice the daily time savings of Copilot Chat users.", s1_body))
     story.append(sp(8))
     story.append(TimeSavingsPanel(width))

@@ -1698,6 +1698,88 @@ def build_report():
     def source_note(text):
         return Paragraph(f"<i>{text}</i>", note_style)
 
+    def access_evidence_table():
+        header_style = ParagraphStyle(
+            "AccessEvidenceHeader",
+            fontName="Helvetica-Bold",
+            fontSize=6.5,
+            leading=7.5,
+            alignment=TA_CENTER,
+            textColor=DEWR_DARK_GREY,
+        )
+        measure_style = ParagraphStyle(
+            "AccessEvidenceMeasure",
+            fontName="Helvetica-Bold",
+            fontSize=7.4,
+            leading=8.6,
+            textColor=DEWR_DARK_GREY,
+        )
+        value_style_dark = ParagraphStyle(
+            "AccessEvidenceValueDark",
+            fontName="Helvetica-Bold",
+            fontSize=11.0,
+            leading=12.0,
+            alignment=TA_CENTER,
+            textColor=DEWR_DARK_GREY,
+        )
+        value_style_green = ParagraphStyle(
+            "AccessEvidenceValueGreen",
+            parent=value_style_dark,
+            textColor=DEWR_DARK_GREEN,
+        )
+        data = [
+            [
+                Paragraph("MEASURE", header_style),
+                Paragraph("COPILOT CHAT", header_style),
+                Paragraph("M365 COPILOT", header_style),
+            ],
+            [
+                Paragraph("Public AI rated at least moderately useful", measure_style),
+                Paragraph("82.4%", value_style_green),
+                Paragraph("77.8%", value_style_dark),
+            ],
+            [
+                Paragraph("Copilot rated at least moderately useful", measure_style),
+                Paragraph("70.6%", value_style_dark),
+                Paragraph("92.6%", value_style_green),
+            ],
+            [
+                Paragraph("Public AI used weekly or more", measure_style),
+                Paragraph("52.9%", value_style_green),
+                Paragraph("51.9%", value_style_dark),
+            ],
+            [
+                Paragraph("Copilot used weekly or more", measure_style),
+                Paragraph("58.8%", value_style_dark),
+                Paragraph("85.2%", value_style_green),
+            ],
+            [
+                Paragraph("Public AI added value beyond Copilot", measure_style),
+                Paragraph("73.5%", value_style_dark),
+                Paragraph("81.5%", value_style_green),
+            ],
+        ]
+        first_w = width * 0.52
+        col_w = (width - first_w) / 2
+        table = Table(data, colWidths=[first_w, col_w, col_w], rowHeights=[28, 31, 31, 31, 31, 31])
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), HexColor("#F7F8FA")),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.6, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 1), (-1, 1), 0.6, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 2), (-1, 2), 0.6, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 3), (-1, 3), 0.6, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 4), (-1, 4), 0.6, DEWR_SOFT_LINE),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, 0), "LEFT"),
+            ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 16),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 16),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        return table
+
     def sp(h=6):
         return Spacer(1, h)
 
@@ -1992,40 +2074,32 @@ def build_report():
     story.append(PageBreak())
 
     # 2.3 Access-type variation
-    story.append(Paragraph("2.3 Public AI tools provided different value for M365 Copilot and Copilot Chat users", h3))
+    story.append(Paragraph("2.3 Public AI value differed by Copilot access type", h3))
     story.append(Paragraph(
-        "Public-tool value was not evenly distributed by Copilot access type. Copilot Chat users rated "
-        "public AI tools more useful than Copilot itself, suggesting public tools helped fill gaps left by "
-        "the less integrated Copilot product. M365 Copilot users continued to rate Copilot more highly than "
-        "public AI tools, but most still said public tools added value beyond Copilot. This suggests public "
-        "AI tools provided additional value for both groups, but the type of value differed by existing "
-        "Copilot access.", body))
+        "Survey results suggest that public AI tools were valued differently depending on respondents' "
+        "existing Copilot access. Among Copilot Chat users, <b>82.4%</b> rated public AI tools useful, "
+        "compared with <b>70.6%</b> who rated Copilot useful. Among M365 Copilot users, the pattern was "
+        "reversed: <b>92.6%</b> rated Copilot useful, compared with <b>77.8%</b> who rated public AI "
+        "tools useful.", body))
     story.append(sp(4))
     story.append(Paragraph(
-        "Copilot Chat users were more likely to rate Public AI as useful, while M365 Copilot users rated Copilot more useful.",
+        "The access-type pattern was clearest in relative usefulness ratings.",
         body_bold))
     story.append(sp(4))
-    story.append(PublicAIUsefulnessVisual(width))
+    story.append(access_evidence_table())
     story.append(source_note(
-        "Note: Useful means rated moderately, very or extremely useful. Source: DEWR Public Generative AI Trial survey, 2026."))
-    story.append(sp(6))
+        "Note: Results are based on respondents with known Copilot access type who used at least one public AI tool and "
+        "provided valid responses for the relevant measures. M365 Copilot n=27; Copilot Chat n=34. Useful means "
+        "moderately, very or extremely useful."))
+    story.append(sp(8))
     story.append(Paragraph(
-        "Among Copilot Chat users, <b>82.4%</b> rated at least one public AI tool moderately useful "
-        "or better, compared with <b>70.6%</b> who rated Copilot moderately useful or better. Weekly use "
-        "was also similar across the two tool types, with <b>52.9%</b> using public AI tools weekly or more "
-        "and <b>58.8%</b> using Copilot weekly or more. This suggests public AI tools may have provided "
-        "clearer additional value for users without access to the more integrated M365 Copilot product.", body))
-    story.append(sp(4))
-    story.append(Paragraph(
-        "For M365 Copilot users, public AI tools were used less regularly and rated less useful than Copilot, "
-        "but still provided additional value. While <b>92.6%</b> rated Copilot useful, <b>77.8%</b> rated at "
-        "least one public AI tool useful and <b>81.5%</b> said public AI tools added value beyond Copilot. "
-        "This suggests public AI tools were not replacing M365 Copilot, but were still useful for some tasks.", body))
-    story.append(Paragraph(
-        "Overall, the results suggest public AI tools should be understood as a complement to Copilot rather "
-        "than a direct substitute. The additional value appears different by access type: for Copilot Chat "
-        "users, public AI tools may help fill capability gaps; for M365 Copilot users, they provide optional "
-        "additional functionality for selected tasks.", body))
+        "Weekly use points to the same relative pattern. Public AI weekly use was similar across access "
+        "groups (<b>52.9%</b> for Copilot Chat users and <b>51.9%</b> for M365 Copilot users). However, "
+        "for Copilot Chat users, public AI weekly use sat close to their Copilot weekly use "
+        "(<b>58.8%</b>), while for M365 Copilot users it sat well below their Copilot weekly use "
+        "(<b>85.2%</b>). This suggests public AI added less incremental value for M365 Copilot users "
+        "than for Copilot Chat users, while still providing some added value beyond Copilot for most "
+        "respondents in both groups.", body))
 
     # 2.4 Prior experience variation
     story.append(KeepTogether([

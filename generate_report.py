@@ -1658,6 +1658,7 @@ def build_report():
     body = ParagraphStyle('Body', fontName='Helvetica', fontSize=10,
                            leading=14, textColor=DEWR_DARK_GREY, spaceAfter=8,
                            alignment=TA_JUSTIFY)
+    section_intro = ParagraphStyle('SectionIntro', parent=body, spaceAfter=0)
     body_bold = ParagraphStyle('BodyBold', fontName='Helvetica-Bold', fontSize=10,
                                 leading=14, textColor=DEWR_DARK_GREY, spaceAfter=8)
     bullet_style = ParagraphStyle('Bullet', fontName='Helvetica', fontSize=10,
@@ -1801,11 +1802,11 @@ def build_report():
     story.append(sp(10))
 
     # Section 1: Copilot
-    story.append(Paragraph("Copilot usage and productivity", s1_h2))
+    story.append(Paragraph("1. Copilot usage and productivity", s1_h2))
     story.append(Paragraph(
         "A total of 71 survey respondents indicated that they used copilot and answered questions "
         "about how they used it, how often, and how much time they believed it saved them.",
-        s1_body))
+        section_intro))
     story.append(sp(4))
     story.append(callout(
         "Copilot already delivers material productivity value, but benefits are tiered by "
@@ -1875,7 +1876,7 @@ def build_report():
     story.append(Paragraph(
         "A total of 61 survey respondents indicated that they used one of the Public Generative AI "
         "tools during the trial and answered questions about how they used it, how often, and how "
-        "much time they believed it saved them.", body))
+        "much time they believed it saved them.", section_intro))
     story.append(sp(4))
     story.append(callout(
         "Public Gen AI tools created clear value for many trial users, but benefits were uneven: "
@@ -1887,7 +1888,7 @@ def build_report():
         ("72%", "Wanted continued access"),
         ("53%", "Used public tools at least weekly"),
     ], primary_count=1))
-    story.append(sp(6))
+    story.append(sp(12))
 
     # 2.1 Tool comparison
     story.append(Paragraph("2.1 ChatGPT had the widest reach; Claude had the strongest value signals", h3))
@@ -1927,7 +1928,6 @@ def build_report():
         "editing and research.", body))
     story.append(sp(8))
     story.append(PublicToolTaskProfilePanel(width))
-    story.append(sp(4))
     story.append(source_note(
         "Note: Percentages are based on users of each respective tool: ChatGPT n=56; Gemini n=37; Claude n=41. "
         "Labelled values indicate the highest tool-specific share for each task. Source: DEWR Public Generative AI Trial survey, 2026."))
@@ -1970,7 +1970,6 @@ def build_report():
             "public tools than respondents with lower levels of prior Gen AI experience.", body),
         sp(4),
         PriorExperienceComparisonPanel(width),
-        sp(3),
         source_note("Note: Results should be read directionally given the smaller no/basic segment."),
         sp(3),
         Paragraph(
@@ -2073,11 +2072,11 @@ def build_report():
 
     # Section 3: Concerns
     story.append(sp(8))
-    story.append(Paragraph("Concerns, risks and safeguards", h2))
+    story.append(Paragraph("3. Concerns, risks and safeguards", h2))
     story.append(Paragraph(
         "All respondents were asked about any concerns they have over survey respondents indicated "
         "that they used copilot and answered questions about how they used it, how often, and how "
-        "much time they believed it saved them.", body))
+        "much time they believed it saved them.", section_intro))
     story.append(sp(4))
     story.append(callout(
         "Most survey respondents were comfortable and reported security concerns were rare. Survey "

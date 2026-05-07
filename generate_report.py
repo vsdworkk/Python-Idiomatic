@@ -328,14 +328,14 @@ class TimeSavingsPanel(Flowable):
         c.setFillColor(HexColor("#F7F8FA"))
         c.rect(0, 0, w, h, fill=1, stroke=0)
 
-        label_w = w * 0.28
+        label_w = w * 0.24
         bar_x = pad + label_w
-        bar_w = w - bar_x - 112
+        bar_w = w - bar_x - 150
         bar_h = 11
         max_value = 75
         rows = [
-            ("M365 Copilot", 68.7, "5.7 hrs/week", DEWR_DARK_GREEN),
-            ("Copilot Chat", 33.8, "2.8 hrs/week", DEWR_DARK_GREY),
+            ("M365 Copilot", 68.7, "5.7 hours per week", DEWR_DARK_GREEN),
+            ("Copilot Chat", 33.8, "2.8 hours per week", DEWR_DARK_GREY),
         ]
         for i, (label, value, weekly, color) in enumerate(rows):
             y = h - 41 - i * 35
@@ -347,10 +347,10 @@ class TimeSavingsPanel(Flowable):
             c.rect(bar_x, y, bar_w * (value / max_value), bar_h, fill=1, stroke=0)
             c.setFillColor(color)
             c.setFont("Helvetica-Bold", 13)
-            c.drawRightString(w - pad, y + 5, weekly)
+            c.drawRightString(w - pad, y + 2, weekly)
             c.setFillColor(HexColor("#565B5F"))
             c.setFont("Helvetica", 7.5)
-            c.drawRightString(w - pad, y - 12, f"{value} min/day")
+            c.drawRightString(w - pad, y - 12, f"{value} minutes per day")
 
 
 class CopilotEngagementDeltaPanel(Flowable):
@@ -359,9 +359,9 @@ class CopilotEngagementDeltaPanel(Flowable):
         Flowable.__init__(self)
         self.box_width = width
         self.rows = [
-            ("Rated very/extremely useful", "66.7%", "36.6%"),
-            ("Used at least weekly", "80.0%", "56.1%"),
-            ("Used daily or most of day", "63.3%", "26.8%"),
+            ("Rated very or extremely useful", "67%", "37%"),
+            ("Used at least weekly", "80%", "56%"),
+            ("Used daily or most of day", "63%", "27%"),
         ]
         self._height = 122
 
@@ -483,7 +483,7 @@ class MarginalValuePanel(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 126
+        self._height = 132
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -819,7 +819,7 @@ class HorizontalBarPanel(Flowable):
         self.primary_count = primary_count
         self.value_suffix = value_suffix
         self.row_h = row_h
-        self._height = 46 + self.row_h * len(items)
+        self._height = 56 + self.row_h * len(items)
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -1054,7 +1054,7 @@ class UncertaintyAreasPanel(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 126
+        self._height = 140
         self.items = [
             ("Information boundaries",
              "Uncertainty about what information was appropriate to enter, including unclassified but sensitive material."),
@@ -1072,43 +1072,47 @@ class UncertaintyAreasPanel(Flowable):
         c = self.canv
         w = self.box_width
         h = self._height
-        pad = 16
+        pad = 18
 
         c.setFillColor(HexColor("#F7F8FA"))
         c.rect(0, 0, w, h, fill=1, stroke=0)
 
         c.setFillColor(DEWR_DARK_GREY)
-        c.setFont("Helvetica-Bold", 7.5)
-        c.drawString(pad, h - 22, "AREAS OF UNCERTAINTY IN OPEN-TEXT RESPONSES")
+        c.setFont("Helvetica-Bold", 7.2)
+        c.drawString(pad, h - 22, "THEMES OF UNCERTAINTY IN OPEN-TEXT RESPONSES")
         c.setStrokeColor(DEWR_LIGHT_GREY)
         c.setLineWidth(0.5)
         c.line(pad, h - 36, w - pad, h - 36)
 
         col_w = (w - 2 * pad) / 3
+        title_top = h - 58
+        body_top = h - 88
+        bottom_y = 16
         for i, (title, text) in enumerate(self.items):
             x = pad + i * col_w
             if i:
                 c.setStrokeColor(DEWR_LIGHT_GREY)
-                c.line(x, 18, x, h - 46)
+                c.line(x, bottom_y, x, h - 48)
 
             title_p = Paragraph(title, ParagraphStyle(
                 "uncertainty_title",
                 fontName="Helvetica-Bold",
-                fontSize=8.6,
-                leading=10.2,
+                fontSize=8.2,
+                leading=9.4,
                 textColor=DEWR_DARK_GREY,
             ))
-            title_p.wrap(col_w - 22, 28)
-            title_p.drawOn(c, x + 10, h - 68)
+            title_w = col_w - 30
+            title_h = title_p.wrap(title_w, 32)[1]
+            title_p.drawOn(c, x + 10, title_top - title_h)
             p = Paragraph(text, ParagraphStyle(
                 "uncertainty_text",
                 fontName="Helvetica",
-                fontSize=8.0,
-                leading=9.6,
+                fontSize=7.7,
+                leading=9.0,
                 textColor=DEWR_DARK_GREY,
             ))
-            p.wrap(col_w - 22, 48)
-            p.drawOn(c, x + 10, h - 112)
+            _, text_h = p.wrap(title_w, 54)
+            p.drawOn(c, x + 10, body_top - text_h)
 
 
 class SafeguardModelPanel(Flowable):
@@ -1593,7 +1597,7 @@ def cover_page(canvas, doc):
         leading=34,
         textColor=white,
     )
-    title = Paragraph("Evaluation of the Public<br/>Generative AI Trial", title_style)
+    title = Paragraph("Public Generative AI Trial", title_style)
     title.wrap(page_w - left - 64, 120)
     title.drawOn(canvas, left, page_h - 285)
 
@@ -1604,13 +1608,13 @@ def cover_page(canvas, doc):
         leading=25,
         textColor=cover_green,
     )
-    subtitle = Paragraph("Summary of evaluation findings", subtitle_style)
+    subtitle = Paragraph("Evaluation Report", subtitle_style)
     subtitle.wrap(page_w - left - 64, 80)
-    subtitle.drawOn(canvas, left, page_h - 390)
+    subtitle.drawOn(canvas, left, page_h - 326)
 
     canvas.setFillColor(cover_green)
     canvas.setFont("Helvetica", 16)
-    canvas.drawString(left, page_h - 520, "May 2026")
+    canvas.drawString(left, page_h - 354, "May 2026")
     canvas.restoreState()
 
 
@@ -1638,6 +1642,7 @@ def build_report():
                                      spaceAfter=20)
     h1 = ParagraphStyle('H1', fontName='Helvetica-Bold', fontSize=18,
                          leading=24, textColor=DEWR_NAVY, spaceBefore=16, spaceAfter=10)
+    evaluation_h1 = ParagraphStyle('EvaluationH1', parent=h1, textColor=DEWR_DARK_GREEN)
     h2 = ParagraphStyle('H2', fontName='Helvetica-Bold', fontSize=14,
                          leading=18, textColor=DEWR_NAVY, spaceBefore=14, spaceAfter=8)
     h3 = ParagraphStyle('H3', fontName='Helvetica-Bold', fontSize=11.5,
@@ -1665,7 +1670,8 @@ def build_report():
                                   leftIndent=20, rightIndent=20, spaceAfter=8,
                                   borderPadding=6)
     note_style = ParagraphStyle('Note', fontName='Helvetica-Oblique', fontSize=8.5,
-                                 leading=11, textColor=DEWR_GREY, spaceAfter=6)
+                                 leading=11, textColor=DEWR_GREY, spaceBefore=4,
+                                 spaceAfter=6)
     chart_title = ParagraphStyle('ChartTitle', fontName='Helvetica-Bold', fontSize=10.5,
                                   leading=13, textColor=DEWR_DARK_GREY,
                                   spaceBefore=4, spaceAfter=4)
@@ -1789,179 +1795,18 @@ def build_report():
     story.append(PageBreak())
 
     # ==============================
-    # TABLE OF CONTENTS
-    # ==============================
-    story.append(Paragraph("Contents", h1))
-    story.append(sp(4))
-    toc_items = [
-        ("Executive summary", "3"),
-        ("    Preface", "3"),
-        ("    Overarching findings", "4"),
-        ("    Recommendations", "5"),
-        ("Evaluation findings", "6"),
-        ("    1. Copilot productivity baseline", "6"),
-        ("    2. Public Gen AI uptake, use and productivity", "8"),
-        ("    3. Concerns, risks and safeguards", "13"),
-        ("Approach and methodology", "15"),
-        ("Appendix", "16"),
-    ]
-    toc_style = ParagraphStyle('TOC', fontName='Helvetica', fontSize=10,
-                                leading=18, textColor=DEWR_DARK_GREY)
-    toc_bold = ParagraphStyle('TOCBold', fontName='Helvetica-Bold', fontSize=10,
-                               leading=18, textColor=DEWR_NAVY)
-    for item, pg in toc_items:
-        is_main = not item.startswith("    ")
-        s = toc_bold if is_main else toc_style
-        display = item.strip()
-        dots = '.' * max(3, (80 - len(display)))
-        story.append(Paragraph(f"{display} {'.' * 3}<spacer length='flexible'/>{pg}", s))
-    story.append(PageBreak())
-
-    # ==============================
-    # EXECUTIVE SUMMARY
-    # ==============================
-    story.append(Paragraph("Executive summary", h1))
-    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
-    story.append(sp(4))
-
-    # Preface
-    story.append(Paragraph("Preface", h2))
-    story.append(Paragraph(
-        "DEWR currently provides all employees with access to Generative AI. All employees can access "
-        "the free Microsoft Copilot Chat and just under 10% can access the paid M365 Copilot with "
-        "greater integration capability. In March 2026, nearly 80% of all staff used one of these tools, "
-        "entering over 250,000 prompts, or about 4 prompts per person every workday.",
-        body))
-    story.append(Paragraph(
-        "In January 2026, DEWR ran a trial in which 5% of employees were provided access to Public "
-        "Generative AI tools, in addition to their existing Copilot access. The trial cohort was selected "
-        "at random and stratified to ensure representation across Groups, Copilot access types, and "
-        "APS levels. The tools were the free versions of OpenAI’s ChatGPT, Google’s Gemini, and "
-        "Anthropic’s Claude, accessed via web browsers. Staff were provided with technical and "
-        "governance instruction, including on what could be uploaded (unclassified information only). "
-        "Technical protections were established to reduce the likelihood of classified material being "
-        "uploaded to the tools.",
-        body))
-    story.append(Paragraph(
-        "At the conclusion of the trial period, all participants were invited to complete a voluntary "
-        "survey about their experience. A total of 104 staff completed the survey, representing an "
-        "approximate 52% response rate. Respondents were evenly split by classification, with 52 APS "
-        "staff (50%) and 52 Executive Level staff (50%), drawn from all five departmental groups.",
-        body))
-    story.append(sp(4))
-
-    # Assessment areas
-    story.append(Paragraph("The trial was intended to assess:", body_bold))
-    story.append(bullet("The current productivity of Copilot (both versions)"))
-    story.append(bullet("Whether Public Gen AI tools provided additional value beyond Copilot"))
-    story.append(bullet("The relative utility of each of the selected Public Gen AI tools"))
-    story.append(bullet("The potential productivity benefits from the Public Gen AI tools"))
-    story.append(bullet("The degree of concern staff have when using the tools"))
-    story.append(sp(4))
-
-    # Overarching findings
-    story.append(Paragraph("Overarching findings", h2))
-    story.append(callout(
-        "Public Gen AI tools delivered clear productivity benefits for many users, "
-        "but value was not uniform. Copilot already provides meaningful time savings, "
-        "and public tools offered additional value, particularly for users with lower Copilot access."))
-    story.append(sp(10))
-
-    # Stat boxes row
-    stat_data = [
-        ("68.7 min/day", "M365 daily saving", DEWR_NAVY),
-        ("33.8 min/day", "Copilot Chat daily saving", DEWR_BLUE),
-        ("80%", "Rated tool useful", DEWR_GREEN),
-        ("72%", "Continued access", DEWR_DARK_GREEN),
-    ]
-    stat_width = (width - 18) / 4
-    stat_boxes = []
-    for stat, label, color in stat_data:
-        stat_boxes.append(StatBox(stat, label, stat_width, color))
-
-    stat_table = Table([[s for s in stat_boxes]], colWidths=[stat_width]*4)
-    stat_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('LEFTPADDING', (0,0), (-1,-1), 2),
-        ('RIGHTPADDING', (0,0), (-1,-1), 2),
-    ]))
-    story.append(visual_title("Copilot already saves time, and most public-tool users saw value"))
-    story.append(stat_table)
-    story.append(source_note(
-        "Source: DEWR Public Generative AI Trial survey, 2026. Public-tool results are based on survey respondents."))
-    story.append(sp(12))
-
-    # Key finding bullets
-    story.append(key_finding(
-        "M365 Copilot users saved nearly double the time of Copilot Chat users: "
-        "5.7 hours vs 2.8 hours per week."))
-    story.append(sp(4))
-    story.append(key_finding(
-        "ChatGPT had the broadest uptake (92%), but Claude showed the strongest "
-        "usefulness (71%) and continuation intent (63%)."))
-    story.append(sp(6))
-    story.append(key_finding(
-        "Public tools provided clearer marginal value for Copilot Chat users "
-        "than for M365 Copilot users."))
-    story.append(sp(6))
-    story.append(key_finding(
-        "The most common barrier was lack of integration with internal systems (49%), "
-        "followed by free-tier prompt limits (41%)."))
-    story.append(sp(6))
-    story.append(key_finding(
-        "75% of respondents were comfortable using public tools. 11% reported ethical "
-        "concerns and 3% reported specific security concerns."))
-    story.append(sp(10))
-
-    # Recommendations
-    story.append(Paragraph("Recommendations", h2))
-    story.append(Paragraph(
-        "The findings reveal several considerations for DEWR in the context of "
-        "future adoption of Public Generative AI tools.", body))
-    story.append(sp(4))
-
-    # Rec categories
-    recs = [
-        ("Targeted access expansion", [
-            "Consider providing broader access to public Gen AI tools, prioritising user groups that showed "
-            "the strongest productivity gains, particularly experienced Gen AI users and Copilot Chat users.",
-            "Evaluate whether paid tiers of public tools (especially Claude) would address free-tier "
-            "limitations that constrained trial benefits.",
-        ]),
-        ("Capability building", [
-            "Offer specialised training reflecting DEWR-specific use cases, building on the finding that "
-            "prior Gen AI experience was the clearest predictor of stronger outcomes.",
-            "Identify and promote ‘Gen AI Champions’ to share effective practices and encourage adoption.",
-        ]),
-        ("Integration and workflow", [
-            "Investigate integration pathways to reduce the manual effort of transferring public tool "
-            "outputs into internal systems, which was the most commonly reported barrier.",
-            "Conduct workflow analysis across Groups and classifications to identify high-value use cases.",
-        ]),
-        ("Governance and risk management", [
-            "Provide clearer guidance on boundary cases for data classification, where staff reported "
-            "uncertainty about what was technically allowed but still sensitive.",
-            "Proactively monitor the impacts of generative AI on the workforce, including effects on "
-            "accuracy, over-reliance, and environmental considerations.",
-        ]),
-    ]
-    for rec_title, rec_items in recs:
-        story.append(Paragraph(rec_title, h3))
-        for item in rec_items:
-            story.append(bullet(item))
-        story.append(sp(4))
-
-    story.append(PageBreak())
-
-    # ==============================
     # EVALUATION FINDINGS
     # ==============================
-    story.append(Paragraph("Evaluation findings", h1))
-    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
+    story.append(Paragraph("Evaluation findings", evaluation_h1))
     story.append(sp(10))
 
     # Section 1: Copilot
-    story.append(Paragraph("1. Copilot productivity baseline", s1_h2))
+    story.append(Paragraph("Copilot usage and productivity", s1_h2))
+    story.append(Paragraph(
+        "A total of 71 survey respondents indicated that they used copilot and answered questions "
+        "about how they used it, how often, and how much time they believed it saved them.",
+        s1_body))
+    story.append(sp(4))
     story.append(callout(
         "Copilot already delivers material productivity value, but benefits are tiered by "
         "access: integrated M365 Copilot produces stronger time savings, deeper engagement "
@@ -1974,13 +1819,23 @@ def build_report():
     story.append(sp(12))
 
     # Time savings
-    story.append(Paragraph("1.1 M365 Copilot access set a higher productivity baseline", s1_h3))
+    story.append(Paragraph("1.1 M365 Copilot users reported substantially higher time savings", s1_h3))
     story.append(Paragraph(
-        "M365 Copilot users reported average time savings of 68.7 minutes per day, compared "
-        "with 33.8 minutes per day for Copilot Chat users. This means M365 Copilot users reported "
-        "roughly twice the daily time savings of Copilot Chat users.", s1_body))
+        "M365 Copilot users reported average time savings of 5.7 hours per week, compared with "
+        "2.8 hours per week for Copilot Chat users. This means M365 Copilot users reported "
+        "roughly twice the weekly time savings of Copilot Chat users.", s1_body))
     story.append(sp(8))
     story.append(TimeSavingsPanel(width))
+    story.append(sp(6))
+    story.append(Paragraph(
+        "The reported 69 minutes per day for M365 Copilot users is in the same broad range as the "
+        "DTA whole-of-government Copilot trial, which identified around an hour a day of perceived "
+        "savings in high-frequency tasks such as summarising, drafting and meeting support.",
+        s1_body))
+    story.append(source_note(
+        "Note: The DTA reported these as task-level approximations, rather than a single overall "
+        "average daily gain; the comparison is best interpreted as directional context rather than "
+        "a direct benchmark."))
     story.append(sp(12))
 
     # Usefulness and frequency
@@ -1988,8 +1843,7 @@ def build_report():
         Paragraph("1.2 Higher time savings were matched by deeper engagement", s1_h3),
         Paragraph(
             "The productivity gap was reinforced by engagement signals. M365 Copilot users were "
-            "more likely to rate Copilot as highly useful, use it weekly, and use it daily or most "
-            "of the day, suggesting integration is supporting more habitual use.", s1_body),
+            "more likely to rate Copilot as highly useful and to use it more frequently.", s1_body),
         sp(8),
         CopilotEngagementDeltaPanel(width),
     ]))
@@ -1999,14 +1853,17 @@ def build_report():
     story.append(KeepTogether([
         Paragraph("1.3 M365 Copilot users reported a broader task footprint", s1_h3),
         Paragraph(
-            "Across M365 Copilot and Copilot Chat users, Copilot was used most often for summarising, editing and "
-            "revision, and drafting. M365 Copilot users reported using Copilot across more task "
-            "types on average than Copilot Chat users. While both user groups used Copilot "
-            "for the same broad categories of work, M365 Copilot users were more likely to report use for "
-            "research, problem solving and idea generation, and for planning or meeting preparation. "
+            "All versions of Copilot were used most often for summarising, editing and revision, "
+            "and drafting, but M365 Copilot users reported greater use across more task types on "
+            "average than Copilot Chat users.", s1_body),
+        sp(4),
+        bullet(
+            "M365 Copilot users were more likely to use it for research, problem solving and "
+            "ideation, and for planning or meeting preparation."),
+        bullet(
             "These tasks are typically more complex than drafting or summarising alone, suggesting "
-            "M365 Copilot access may be associated with broader use in higher-value knowledge-work "
-            "activities.", s1_body),
+            "M365 Copilot version may be associated with broader use in higher-value knowledge-work "
+            "activities."),
         sp(8),
         TaskFootprintExhibit(width),
     ]))
@@ -2014,7 +1871,12 @@ def build_report():
 
     # Section 2: Public Gen AI
     story.append(PageBreak())
-    story.append(Paragraph("2. Public Gen AI uptake, use and productivity", h2))
+    story.append(Paragraph("2. Public Gen AI uptake and use", h2))
+    story.append(Paragraph(
+        "A total of 61 survey respondents indicated that they used one of the Public Generative AI "
+        "tools during the trial and answered questions about how they used it, how often, and how "
+        "much time they believed it saved them.", body))
+    story.append(sp(4))
     story.append(callout(
         "Public Gen AI tools created clear value for many trial users, but benefits were uneven: "
         "strongest for experienced users, staff with Copilot Chat, and tasks where "
@@ -2057,38 +1919,32 @@ def build_report():
         "dominant use cases across the trial.", body))
     story.append(Paragraph(
         "Tool use profiles varied by task. Claude had the strongest research profile, with "
-        "73.2% of Claude users using it for research, problem solving or generating ideas. "
-        "Claude was also notably higher for coding or data work at 26.8%, compared with 13.5% "
-        "for Gemini and 10.7% for ChatGPT.", body))
+        "73.2% of Claude users using it for research, problem solving or generating ideas.", body))
     story.append(Paragraph(
-        "Gemini was strongest for editing and revision, at 56.8%, while ChatGPT showed a "
-        "relatively balanced profile across summarising, drafting, editing and research.", body))
+        "Claude was also notably higher for coding or data work at 26.8%, compared with 13.5% "
+        "for Gemini and 10.7% for ChatGPT. Gemini was strongest for editing and revision, at "
+        "56.8%, while ChatGPT showed a relatively balanced profile across summarising, drafting, "
+        "editing and research.", body))
     story.append(sp(8))
     story.append(PublicToolTaskProfilePanel(width))
     story.append(sp(4))
     story.append(source_note(
         "Note: Percentages are based on users of each respective tool: ChatGPT n=56; Gemini n=37; Claude n=41. "
         "Labelled values indicate the highest tool-specific share for each task. Source: DEWR Public Generative AI Trial survey, 2026."))
-    story.append(sp(8))
+    story.append(sp(10))
 
-    story.append(PageBreak())
-
-    # 2.3 Access-type variation
-    story.append(Paragraph("2.3 Public AI value differed by Copilot access type", h3))
+    # Productivity from Public Gen AI
+    story.append(Paragraph("Productivity from Public Gen AI", h2))
     story.append(Paragraph(
         "Survey results suggest that public AI tools were valued differently depending on respondents' "
-        "existing Copilot access. Among Copilot Chat users, <b>82.4%</b> rated public AI tools useful, "
+        "existing Copilot version. Among Copilot Chat users, <b>82.4%</b> rated public AI tools useful, "
         "compared with <b>70.6%</b> who rated Copilot useful. Among M365 Copilot users, the pattern was "
         "reversed: <b>92.6%</b> rated Copilot useful, compared with <b>77.8%</b> who rated public AI "
         "tools useful.", body))
     story.append(sp(4))
-    story.append(Paragraph(
-        "The access-type pattern was clearest in relative usefulness ratings.",
-        body_bold))
-    story.append(sp(4))
     story.append(access_evidence_table())
     story.append(source_note(
-        "Note: Results are based on respondents with known Copilot access type who used at least one public AI tool and "
+        "Note: Results are based on respondents with known Copilot version who used at least one public AI tool and "
         "provided valid responses for the relevant measures. M365 Copilot n=27; Copilot Chat n=34. Useful means "
         "moderately, very or extremely useful."))
     story.append(sp(8))
@@ -2100,6 +1956,10 @@ def build_report():
         "(<b>85.2%</b>). This suggests public AI added less incremental value for M365 Copilot users "
         "than for Copilot Chat users, while still providing some added value beyond Copilot for most "
         "respondents in both groups.", body))
+
+    story.append(sp(8))
+    story.append(Paragraph("Public Gen AI usage by cohort", h2))
+    story.append(sp(4))
 
     # 2.4 Prior experience variation
     story.append(KeepTogether([
@@ -2128,6 +1988,7 @@ def build_report():
     story.append(Paragraph("2.5 Reported value varied by classification and organisational group", h3))
     story.append(sp(4))
     story.append(Paragraph("Classification level", mini_heading))
+    story.append(sp(4))
     story.append(Paragraph(
         "EL users were more likely than APS users to report that public tools provided value over and above "
         "Copilot (<b>78.6% vs 66.7%</b>) and were slightly more likely to use public tools weekly or more "
@@ -2146,8 +2007,8 @@ def build_report():
         first_col_ratio=0.50,
     ))
     story.append(sp(8))
-    story.append(PageBreak())
     story.append(Paragraph("Organisational group", mini_heading))
+    story.append(sp(4))
     story.append(Paragraph(
         "Reported value also varied across groups. Workplace Relations recorded the strongest added-value "
         "result (<b>85.7%</b>), while Employment and Workforce and Corporate and Enabling recorded high "
@@ -2171,8 +2032,7 @@ def build_report():
     story.append(sp(4))
 
     # 2.6 Barriers
-    story.append(PageBreak())
-    story.append(Paragraph("2.6 Limitations were common, led by lack of integration and request limits", h3))
+    story.append(Paragraph("2.4 Limitations were common, led by lack of integration with internal systems and request limits", h3))
     story.append(sp(4))
     story.append(HorizontalEvidenceCallout(
         width,
@@ -2202,10 +2062,23 @@ def build_report():
         ("Slow responses", 28),
         ("Fabricated content or hallucinations", 15),
     ], max_value=100, primary_count=2, row_h=13))
+    story.append(sp(8))
+    story.append(Paragraph(
+        "The limitation profile also varied by tool. Lack of integration was common across all three "
+        "tools, affecting <b>48%</b> of ChatGPT users, <b>49%</b> of Gemini users and <b>51%</b> of "
+        "Claude users. Free prompt or request limits were more concentrated in ChatGPT, reported by "
+        "<b>36%</b> of ChatGPT users, compared with <b>20%</b> of Claude users and <b>5%</b> of Gemini "
+        "users. Gemini had the highest share of users reporting difficulty with specialised topics, "
+        "at <b>38%</b>.", body))
 
     # Section 3: Concerns
-    story.append(PageBreak())
-    story.append(Paragraph("3. Concerns, risks and safeguards", h2))
+    story.append(sp(8))
+    story.append(Paragraph("Concerns, risks and safeguards", h2))
+    story.append(Paragraph(
+        "All respondents were asked about any concerns they have over survey respondents indicated "
+        "that they used copilot and answered questions about how they used it, how often, and how "
+        "much time they believed it saved them.", body))
+    story.append(sp(4))
     story.append(callout(
         "Most survey respondents were comfortable and reported security concerns were rare. Survey "
         "results suggest safety communications and splash screens supported cautious use, while "
@@ -2219,7 +2092,7 @@ def build_report():
     ], primary_count=1))
     story.append(sp(12))
 
-    story.append(Paragraph("3.1 Most respondents were comfortable; security concerns were rare", h3))
+    story.append(Paragraph("3.1 Most respondents were comfortable; security concerns were present but rare", h3))
     story.append(Paragraph(
         "Survey results showed relatively high comfort using public tools. Three-quarters of "
         "respondents were comfortable or very comfortable using public tools, while one-quarter "
@@ -2241,7 +2114,6 @@ def build_report():
     story.append(UncertaintyAreasPanel(width))
     story.append(sp(8))
 
-    story.append(PageBreak())
     story.append(Paragraph("3.3 Respondents were more likely to copy/paste information than upload documents", h3))
     story.append(Paragraph(
         "Reported data-handling behaviour varied by activity. Copying and pasting information "
@@ -2262,140 +2134,15 @@ def build_report():
     ], primary_count=0))
     story.append(sp(10))
     story.append(Paragraph(
-        "Survey responses showed two different safeguard signals. Most respondents rated the "
-        "safety communications positively: the introductory email was rated moderately or highly "
-        "effective by <b>74%</b> of respondents, while splash screens were rated moderately or "
-        "highly effective by <b>72%</b>. Two-thirds of respondents rated both the email and splash "
-        "screens effective.", body))
+        "Most respondents rated the safety communications positively: the introductory email was rated "
+        "moderately or highly effective by <b>74%</b> of respondents, while splash screens were rated "
+        "moderately or highly effective by <b>72%</b>. Two-thirds of respondents rated both the email "
+        "and splash screens as effective.", body))
     story.append(Paragraph(
         "Upload blockers were less visible in the survey results: <b>16.7%</b> of respondents "
         "noticed or rated upload blockers as effective, and no respondent rated upload blockers "
         "ineffective.", body))
     story.append(sp(8))
-
-    story.append(sp(10))
-
-    # ==============================
-    # APPROACH AND METHODOLOGY
-    # ==============================
-    story.append(PageBreak())
-    story.append(Paragraph("Approach and methodology", h1))
-    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
-    story.append(sp(8))
-
-    story.append(Paragraph("Goal and scope", h3))
-    story.append(Paragraph(
-        "The trial assessed whether providing DEWR staff with access to publicly available "
-        "Generative AI tools would deliver productivity benefits beyond those already provided by "
-        "Microsoft Copilot. The trial ran for a defined period in January 2026 with approximately "
-        "200 randomly selected and stratified employees.", body))
-    story.append(sp(4))
-
-    story.append(Paragraph("Sampling", h3))
-    story.append(bullet("5% of DEWR employees were selected for the trial."))
-    story.append(bullet("Selection was randomised and stratified across Groups, Copilot access types, and APS levels."))
-    story.append(bullet("All trial participants retained their existing Copilot access throughout."))
-    story.append(sp(4))
-
-    story.append(Paragraph("Survey design and response", h3))
-    story.append(bullet("A voluntary post-trial survey was administered to all trial participants."))
-    story.append(bullet("104 staff completed the survey (approximately 52% response rate)."))
-    story.append(bullet("Respondents: 52 APS staff (50%) and 52 Executive Level staff (50%)."))
-    story.append(bullet("Respondents came from all five departmental groups."))
-    story.append(bullet("71 respondents (68.3%) used at least one public Gen AI tool during the trial."))
-    story.append(bullet("30 respondents reported having M365 Copilot access."))
-    story.append(sp(4))
-
-    story.append(Paragraph("Most respondents had at least some prior Gen AI experience", h3))
-    exp_data = [
-        ["Experience level", "Count", "Share"],
-        ["No prior experience", "7", "6.7%"],
-        ["Basic familiarity", "33", "31.7%"],
-        ["Some experience", "35", "33.7%"],
-        ["Experienced", "24", "23.1%"],
-        ["Highly experienced", "5", "4.8%"],
-    ]
-    exp_w = [width * 0.50, width * 0.25, width * 0.25]
-    t3 = Table(exp_data, colWidths=exp_w)
-    t3.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DEWR_NAVY),
-        ('TEXTCOLOR', (0, 0), (-1, 0), white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('FONTNAME', (0, 1), (0, -1), 'Helvetica'),
-        ('TEXTCOLOR', (0, 1), (-1, -1), DEWR_DARK_GREY),
-        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.5, DEWR_LIGHT_GREY),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [HexColor("#F5F5F5"), white]),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    story.append(t3)
-    story.append(source_note(
-        "Note: n=104; shares may not total 100 due to rounding. Source: DEWR Public Generative AI Trial survey, 2026."))
-    story.append(sp(10))
-
-    # ==============================
-    # APPENDIX
-    # ==============================
-    story.append(PageBreak())
-    story.append(Paragraph("Appendix", h1))
-    story.append(HRFlowable(width="100%", thickness=1, color=DEWR_GREEN))
-    story.append(sp(8))
-
-    story.append(Paragraph("Additional survey patterns", h3))
-    story.append(Paragraph(
-        "Public-tool value also varied by APS/EL level and organisational group. EL users were more "
-        "likely to report value over Copilot, APS users were more likely to rate at least one public "
-        "tool as useful, and Workplace Relations recorded the strongest value-over-Copilot result.",
-        body))
-    story.append(sp(8))
-
-    story.append(Paragraph("Survey questionnaire", h2))
-    story.append(Paragraph(
-        "The survey comprised mandatory and optional questions across six sections. "
-        "Questions requiring an answer are denoted with an asterisk (*). Skip logic directed "
-        "participants to later questions based on their responses.", body))
-    story.append(sp(4))
-
-    sections = [
-        ("Section 1: General questions (Q1–Q11)", [
-            "APS level, Group, Job Family, Job Title",
-            "Prior Gen AI experience level",
-            "Whether the participant used public Gen AI tools during the trial",
-            "Reasons for non-use (if applicable)",
-            "Frequency of public tool use, experience improvement, document upload and copy-paste behaviour",
-        ]),
-        ("Section 2: Copilot (Q12–Q17)", [
-            "M365 Copilot access status",
-            "Copilot usage frequency, task types, overall usefulness",
-            "Time saved by activity area and across the average workday",
-        ]),
-        ("Section 3: ChatGPT (Q18–Q25)", [
-            "Whether ChatGPT was used, frequency, task types, usefulness",
-            "Comparison with Copilot across five dimensions",
-            "Additional value beyond Copilot by task type",
-            "Limitations experienced and continuation intent",
-        ]),
-        ("Section 4: Gemini (Q26–Q33)", [
-            "Same structure as ChatGPT section",
-        ]),
-        ("Section 5: Claude (Q34–Q41)", [
-            "Same structure as ChatGPT section",
-        ]),
-        ("Section 6: Final questions (Q42–Q48)", [
-            "Overall comfort using public Gen AI tools",
-            "Value of public tools over and above Copilot",
-            "Ethical and security concerns encountered",
-            "Open-text feedback on concerns and additional comments",
-        ]),
-    ]
-    for sec_title, items in sections:
-        story.append(Paragraph(sec_title, h3))
-        for item in items:
-            story.append(bullet(item))
-        story.append(sp(4))
 
     # Build
     doc.build(story, onFirstPage=cover_page, onLaterPages=header_footer)

@@ -24,6 +24,10 @@ DEWR_GREY = HexColor("#A4A7A9")
 DEWR_LIGHT_GREY = HexColor("#D7D8D8")
 DEWR_LIME = HexColor("#B5C427")
 DEWR_RED = HexColor("#91040D")
+DEWR_OFF_WHITE = HexColor("#F7F8FA")
+DEWR_SOFT_LINE = HexColor("#E1E3DF")
+DEWR_TEXT_GREY = HexColor("#6B6E70")
+DEWR_MUTED_GREY = HexColor("#B8BBBD")
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "Outputs")
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, "DEWR_Public_AI_B.pdf")
@@ -646,60 +650,107 @@ class HorizontalEvidenceCallout(Flowable):
         text.drawOn(c, value_w + pad, (h - text_h) / 2)
 
 
-class AccessComparisonPanel(Flowable):
-    """Two-column comparison panel for Copilot access-type metrics."""
-    def __init__(self, width):
+class PublicAIUsefulnessVisual(Flowable):
+    """
+    Two-column bar comparison showing which tool each access group rated more useful.
+    """
+
+    def __init__(self, width=None):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 104
+        self.box_height = 104
 
     def wrap(self, availWidth, availHeight):
-        self.box_width = availWidth
-        return self.box_width, self._height
+        if self.box_width is None:
+            self.box_width = availWidth
+        return self.box_width, self.box_height
+
+    def _para(self, text, x, y_top, width, size=7, leading=None,
+              font="Helvetica", color=DEWR_DARK_GREY, bold=False):
+        style = ParagraphStyle(
+            "tmp",
+            fontName="Helvetica-Bold" if bold else font,
+            fontSize=size,
+            leading=leading or size + 2,
+            textColor=color,
+            alignment=TA_LEFT,
+            spaceAfter=0,
+            spaceBefore=0,
+        )
+        p = Paragraph(text, style)
+        _, h = p.wrap(width, 1000)
+        p.drawOn(self.canv, x, y_top - h)
 
     def draw(self):
         c = self.canv
         w = self.box_width
-        h = self._height
-        pad = 16
-        inner_top = h - 16
-        col_w = (w - 2 * pad) / 2
+        h = self.box_height
 
-        c.setFillColor(HexColor("#F7F8FA"))
+        c.setFillColor(DEWR_OFF_WHITE)
         c.rect(0, 0, w, h, fill=1, stroke=0)
 
-        c.setStrokeColor(DEWR_LIGHT_GREY)
-        c.setLineWidth(0.5)
-        c.line(w / 2, 18, w / 2, inner_top)
+        pad = 28
+        inner_w = w - 2 * pad
+        gap = 28
+        col_w = (inner_w - gap) / 2
+        left_x = pad
+        right_x = pad + col_w + gap
+        divider_x = pad + col_w + gap / 2
 
-        columns = [
-            ("Copilot Chat", "79%", "reported public tools added value beyond Copilot", DEWR_DARK_GREEN),
-            ("M365 Copilot", "63%", "reported public tools added value beyond Copilot", DEWR_DARK_GREY),
-        ]
-        label_style = ParagraphStyle(
-            "access_comparison_label",
-            fontName="Helvetica",
-            fontSize=7.8,
-            leading=8.8,
-            alignment=TA_CENTER,
-            textColor=DEWR_DARK_GREY,
-        )
-        for i, (name, value, label, color) in enumerate(columns):
-            x = pad + i * col_w
-            cx = x + col_w / 2
+        # Column divider
+        c.setStrokeColor(DEWR_SOFT_LINE)
+        c.setLineWidth(0.6)
+        c.line(divider_x, 10, divider_x, h - 10)
+
+        def draw_group(x, title, rows):
+            title_y = h - 16
+            label_w = 50
+            bar_x = x + label_w + 10
+            value_gap = 6
+            bar_w = col_w - label_w - 48
+            bar_h = 12
+            max_value = 100
+
             c.setFillColor(DEWR_DARK_GREY)
-            c.setFont("Helvetica-Bold", 8.0)
-            c.drawCentredString(cx, h - 24, name)
-            c.setFillColor(color)
-            c.setFont("Helvetica-Bold", 24)
-            c.drawCentredString(cx, h - 56, value)
-            p = Paragraph(label, label_style)
-            _, label_h = p.wrap(col_w - 34, 22)
-            p.drawOn(c, x + 17, 34 - label_h / 2)
+            c.setFont("Helvetica-Bold", 9.0)
+            title_para = Paragraph(title, ParagraphStyle(
+                "usefulness_group_title",
+                fontName="Helvetica-Bold",
+                fontSize=8.3,
+                leading=9.5,
+                textColor=DEWR_DARK_GREY,
+            ))
+            title_para.wrap(col_w - 8, 22)
+            title_para.drawOn(c, x, title_y - 12)
 
-        c.setFillColor(DEWR_DARK_GREY)
-        c.setFont("Helvetica-Bold", 7.3)
-        c.drawCentredString(w / 2, 6, "+16 pts higher among Copilot Chat users")
+            for i, (label, value, color) in enumerate(rows):
+                y = title_y - 36 - i * 22
+                c.setFillColor(DEWR_DARK_GREY)
+                c.setFont("Helvetica", 8.0)
+                c.drawString(x, y + 2, label)
+                c.setFillColor(color)
+                c.rect(bar_x, y, bar_w * value / max_value, bar_h, fill=1, stroke=0)
+                c.setFillColor(DEWR_DARK_GREY)
+                c.setFont("Helvetica-Bold", 7.6)
+                c.drawString(bar_x + bar_w * value / max_value + value_gap, y + 2, f"{value:.1f}%")
+
+        comparison_grey = HexColor("#D7D5CC")
+        draw_group(
+            left_x,
+            "Copilot Chat",
+            [
+                ("Public AI", 82.4, DEWR_DARK_GREEN),
+                ("Copilot", 70.6, comparison_grey),
+            ],
+        )
+        draw_group(
+            right_x,
+            "M365 Copilot",
+            [
+                ("Copilot", 92.6, DEWR_DARK_GREY),
+                ("Public AI", 77.8, comparison_grey),
+            ],
+        )
 
 
 class PriorExperienceComparisonPanel(Flowable):
@@ -1938,19 +1989,43 @@ def build_report():
         "Labelled values indicate the highest tool-specific share for each task. Source: DEWR Public Generative AI Trial survey, 2026."))
     story.append(sp(8))
 
+    story.append(PageBreak())
+
     # 2.3 Access-type variation
-    story.append(Paragraph("2.3 Copilot Chat users reported stronger marginal value from public tools", h3))
+    story.append(Paragraph("2.3 Public AI tools provided different value for M365 Copilot and Copilot Chat users", h3))
     story.append(Paragraph(
-        "Public-tool value was not evenly distributed by Copilot access type. The clearest "
-        "access-type signal was stronger reported marginal value among Copilot Chat users, "
-        "while M365 Copilot users already had access to a more integrated Microsoft product.", body))
+        "Public-tool value was not evenly distributed by Copilot access type. Copilot Chat users rated "
+        "public AI tools more useful than Copilot itself, suggesting public tools helped fill gaps left by "
+        "the less integrated Copilot product. M365 Copilot users continued to rate Copilot more highly than "
+        "public AI tools, but most still said public tools added value beyond Copilot. This suggests public "
+        "AI tools provided additional value for both groups, but the type of value differed by existing "
+        "Copilot access.", body))
     story.append(sp(4))
-    story.append(AccessComparisonPanel(width))
+    story.append(Paragraph(
+        "Copilot Chat users were more likely to rate Public AI as useful, while M365 Copilot users rated Copilot more useful.",
+        body_bold))
+    story.append(sp(4))
+    story.append(PublicAIUsefulnessVisual(width))
+    story.append(source_note(
+        "Note: Useful means rated moderately, very or extremely useful. Source: DEWR Public Generative AI Trial survey, 2026."))
     story.append(sp(6))
     story.append(Paragraph(
-        "Usefulness was slightly higher for Copilot Chat users (<b>82% vs 78%</b>), while weekly "
-        "use was almost identical (<b>53% vs 52%</b>), suggesting the stronger result reflects perceived "
-        "marginal value rather than higher usage frequency.", body))
+        "Among Copilot Chat users, <b>82.4%</b> rated at least one public AI tool moderately useful "
+        "or better, compared with <b>70.6%</b> who rated Copilot moderately useful or better. Weekly use "
+        "was also similar across the two tool types, with <b>52.9%</b> using public AI tools weekly or more "
+        "and <b>58.8%</b> using Copilot weekly or more. This suggests public AI tools may have provided "
+        "clearer additional value for users without access to the more integrated M365 Copilot product.", body))
+    story.append(sp(4))
+    story.append(Paragraph(
+        "For M365 Copilot users, public AI tools were used less regularly and rated less useful than Copilot, "
+        "but still provided additional value. While <b>92.6%</b> rated Copilot useful, <b>77.8%</b> rated at "
+        "least one public AI tool useful and <b>81.5%</b> said public AI tools added value beyond Copilot. "
+        "This suggests public AI tools were not replacing M365 Copilot, but were still useful for some tasks.", body))
+    story.append(Paragraph(
+        "Overall, the results suggest public AI tools should be understood as a complement to Copilot rather "
+        "than a direct substitute. The additional value appears different by access type: for Copilot Chat "
+        "users, public AI tools may help fill capability gaps; for M365 Copilot users, they provide optional "
+        "additional functionality for selected tasks.", body))
 
     # 2.4 Prior experience variation
     story.append(KeepTogether([

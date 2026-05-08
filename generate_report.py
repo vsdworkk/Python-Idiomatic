@@ -32,6 +32,7 @@ from report_design_system import (
     KEY_FINDING_BACKGROUND,
     build_paragraph_styles,
     draw_panel_background,
+    fit_text_size,
     register_fonts,
     DEWR_GREEN,
     DEWR_DARK_GREEN,
@@ -408,107 +409,98 @@ class TimeSavingsPanel(Flowable):
             c.drawRightString(w - pad, y - 12, daily_label)
 
 
-class M365LicenceCoveragePanel(Flowable):
-    """Combined licence coverage overview by classification and group."""
-    def __init__(self, width):
+class M365ValueAndReachTable(Flowable):
+    """Single-section matrix showing Copilot value and M365 reach."""
+    def __init__(self, width, section_title, rows):
         Flowable.__init__(self)
         self.box_width = width
-        self.group_rows = sorted([
-            ("Corporate and Enabling", 990, 78, 7.9),
-            ("Employment and Workforce", 1198, 73, 6.1),
-            ("Workplace Relations", 377, 40, 10.6),
-            ("Skills and Training", 584, 33, 5.7),
-        ], key=lambda r: -r[3])
-        self.stats = [
-            ("6.8%", "Overall Staff", DEWR_DARK_GREEN),
-            ("4.5%", "APS Level Staff", DEWR_DARK_GREY),
-            ("9.9%", "EL Level Staff", DEWR_DARK_GREEN),
-        ]
-        self.max_value = 100.0
-        self._height = 220
+        self.section_title = section_title
+        self.rows = rows
+        self.columns = ["M365 Copilot", "Copilot Chat", "M365 Value", "M365 Coverage"]
+        self.row_h = TABLE_SPEC.matrix_row_height + SPACING.xs
+        self.pad = PANEL.padding_medium
+        self._height = 2 * self.pad + 20 + self.row_h * len(rows)
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
         return self.box_width, self._height
 
+    def _draw_centered(self, c, text, x, y, font, size, color, max_width):
+        c.setFillColor(color)
+        fitted = fit_text_size(c, text, font, size, max_width, min_size=5.8)
+        c.setFont(font, fitted)
+        c.drawCentredString(x, y, text)
+
     def draw(self):
         c = self.canv
         w = self.box_width
         h = self._height
-        pad = PANEL.padding_large
+        pad = self.pad
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
-        content_top = h - 44
-        content_bottom = 16
-        content_h = content_top - content_bottom
+        first_w = (w - 2 * pad) * 0.35
+        col_w = (w - 2 * pad - first_w) / 4
+        header_y = h - pad - 4
+        rule_y = header_y - 14
+        data_bottom = rule_y - self.row_h * len(self.rows)
 
-        left_w = (w - 2 * pad) * 0.22
-        gap = 22
-        right_x = pad + left_w + gap
-        right_w = w - pad - right_x
+        c.setFillColor(DEWR_TEXT_GREY)
+        c.setFont(FONT_BOLD, VISUAL_TEXT.value_reach_column_header)
+        c.drawString(pad, header_y, self.section_title)
 
-        div_x = pad + left_w + gap / 2
-        c.setStrokeColor(DEWR_LIGHT_GREY)
-        c.line(div_x, content_top, div_x, content_bottom)
+        for idx, col in enumerate(self.columns):
+            cx = pad + first_w + col_w * idx + col_w / 2
+            self._draw_centered(
+                c,
+                col.upper(),
+                cx,
+                header_y,
+                FONT_BOLD,
+                VISUAL_TEXT.value_reach_column_header,
+                DEWR_TEXT_GREY,
+                col_w - 6,
+            )
 
-        c.setFillColor(DEWR_DARK_GREY)
-        c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header_small)
-        c.drawString(pad, h - 20, "M365 COPILOT LICENCE COVERAGE")
-
-        c.setStrokeColor(DEWR_LIGHT_GREY)
+        c.setStrokeColor(DEWR_SOFT_LINE)
         c.setLineWidth(LINES.fine)
-        c.line(pad, h - 28, w - pad, h - 28)
+        c.line(pad, rule_y, w - pad, rule_y)
 
-        n_bars = len(self.group_rows)
-        bar_slot_h = content_h / n_bars
-        bar_h = CHART_LAYOUT.bar_height_large
+        label_style = ParagraphStyle(
+            "value_reach_label",
+            fontName=FONT_REGULAR,
+            fontSize=VISUAL_TEXT.value_reach_label,
+            leading=VISUAL_TEXT.value_reach_label_leading,
+            textColor=DEWR_DARK_GREY,
+        )
+        label_style_bold = ParagraphStyle(
+            "value_reach_label_bold",
+            parent=label_style,
+            fontName=FONT_BOLD,
+        )
 
-        for idx, (label, _total_staff, _licence_count, pct) in enumerate(self.group_rows):
-            slot_top = content_top - idx * bar_slot_h
-            y_label = slot_top - 10
-            y_bar = slot_top - bar_slot_h + 6
-            color = DEWR_DARK_GREEN if idx == 0 else DEWR_DARK_GREY
+        for row_idx, (label, m365, chat, multiplier, coverage, emphasis) in enumerate(self.rows):
+            row_top = rule_y - self.row_h * row_idx
+            row_bottom = row_top - self.row_h
+            baseline = row_bottom + 8
 
-            c.setFillColor(DEWR_DARK_GREY)
-            c.setFont(FONT_BOLD, VISUAL_TEXT.stat_label)
-            c.drawString(right_x, y_label, label)
+            c.setStrokeColor(DEWR_SOFT_LINE)
+            c.setLineWidth(LINES.hairline)
+            c.line(pad, row_bottom, w - pad, row_bottom)
 
-            c.setFillColor(BAR_TRACK_MUTED_GREEN)
-            c.rect(right_x, y_bar, right_w, bar_h, fill=1, stroke=0)
+            p = Paragraph(label, label_style_bold if emphasis else label_style)
+            _, label_h = p.wrap(first_w - 8, self.row_h - 4)
+            p.drawOn(c, pad, row_bottom + (self.row_h - label_h) / 2)
 
-            fill_w = right_w * min(pct / self.max_value, 1)
-            c.setFillColor(color)
-            c.rect(right_x, y_bar, fill_w, bar_h, fill=1, stroke=0)
-
-            c.setFillColor(color)
-            c.setFont(FONT_BOLD, VISUAL_TEXT.stat_label)
-            c.drawString(right_x + fill_w + 6, y_bar + 4, f"{pct:.1f}%")
-
-        bar_top_visual = content_top - 3
-        bar_bottom_visual = content_top - content_h + 6
-        number_size = 22
-        label_size = VISUAL_TEXT.card_body
-        number_cap_h = number_size * 0.72
-        label_cap_h = label_size * 0.72
-        gap_in_stat = 14
-        stat_h = number_cap_h + gap_in_stat + label_cap_h
-        available_range = bar_top_visual - bar_bottom_visual
-        stat_step = (available_range - stat_h) / (len(self.stats) - 1)
-
-        cx = pad + left_w / 2
-        for idx, (value, label, color) in enumerate(self.stats):
-            top_y = bar_top_visual - idx * stat_step
-            number_baseline = top_y - number_cap_h
-            label_baseline = number_baseline - gap_in_stat - label_cap_h
-
-            c.setFillColor(color)
-            c.setFont(FONT_BOLD, number_size)
-            c.drawCentredString(cx, number_baseline, value)
-
-            c.setFillColor(DEWR_DARK_GREY)
-            c.setFont(FONT_BOLD, label_size)
-            c.drawCentredString(cx, label_baseline, label)
+            values = [
+                (m365, FONT_BOLD, DEWR_DARK_GREY, VISUAL_TEXT.value_reach_value),
+                (chat, FONT_BOLD, DEWR_DARK_GREY, VISUAL_TEXT.value_reach_value),
+                (multiplier, FONT_BOLD, DEWR_DARK_GREEN, VISUAL_TEXT.value_reach_value),
+                (coverage, FONT_BOLD, DEWR_DARK_GREY, VISUAL_TEXT.value_reach_value),
+            ]
+            for idx, (value, font, color, size) in enumerate(values):
+                cx = pad + first_w + col_w * idx + col_w / 2
+                self._draw_centered(c, value, cx, baseline, font, size, color, col_w - 8)
 
 
 class CopilotEngagementDeltaPanel(Flowable):
@@ -2238,35 +2230,6 @@ def build_report():
         visual_spacer(),
         CopilotEngagementDeltaPanel(width),
     ]))
-    story.append(sp(8))
-    story.append(Paragraph("Average weekly time saved by cohort", mini_heading))
-    story.append(EvidenceMatrixPanel(
-        width,
-        "CLASSIFICATION LEVEL",
-        ["M365 Copilot", "Copilot Chat"],
-        [
-            ("APS level", ["6.0 hrs", "3.5 hrs"], 0),
-            ("EL/SES level", ["5.4 hrs", "2.0 hrs"], 0),
-        ],
-        first_col_ratio=0.50,
-    ))
-    story.append(sp(8))
-    story.append(Paragraph("Average weekly time saved by organisational group", mini_heading))
-    story.append(EvidenceMatrixPanel(
-        width,
-        "ORGANISATIONAL GROUP",
-        ["M365 Copilot", "Copilot Chat"],
-        [
-            ("Corporate and Enabling", ["6.3 hrs", "2.5 hrs"], 0),
-            ("Employment and Workforce", ["6.3 hrs", "2.9 hrs"], 0),
-            ("Skills and Training", ["5.4 hrs", "2.9 hrs"], 0),
-            ("Workplace Relations", ["5.0 hrs", "4.0 hrs"], 0),
-        ],
-        first_col_ratio=0.50,
-    ))
-    story.append(sp(4))
-    story.append(source_note(
-        "Note: Values show average weekly hours saved from valid Q17 Copilot time-saved responses."))
     story.append(sp(12))
 
     # Department usage and value
@@ -2287,11 +2250,31 @@ def build_report():
         visual_spacer(),
     ]))
     story.append(KeepTogether([
-        M365LicenceCoveragePanel(width),
+        M365ValueAndReachTable(
+            width,
+            "CLASSIFICATION LEVEL",
+            [
+                ("EL level", "5.4 hrs", "2.0 hrs", "2.7x", "10%", True),
+                ("APS level", "6.0 hrs", "3.5 hrs", "1.7x", "5%", False),
+            ],
+        ),
+        visual_spacer(),
+        M365ValueAndReachTable(
+            width,
+            "ORGANISATIONAL GROUP",
+            [
+                ("Corporate and Enabling", "6.3 hrs", "2.5 hrs", "2.5x", "8%", True),
+                ("Employment and Workforce", "6.3 hrs", "2.9 hrs", "2.2x", "7%", False),
+                ("Skills and Training", "5.4 hrs", "2.9 hrs", "1.9x", "6%", False),
+                ("Workplace Relations", "5.0 hrs", "4.0 hrs", "1.2x", "11%", False),
+            ],
+        ),
         sp(4),
         source_note(
-            "Note: Licence coverage uses current M365 licence counts as a share of all staff in each group. "
-            "Classification level and organisational group are separate cuts of the workforce and should not be summed."),
+            "Note: M365 value is M365 weekly hours saved divided by Copilot Chat weekly hours saved. "
+            "Coverage uses current M365 licence counts as a share of all staff in each group. "
+            "Classification level and organisational group are separate cuts of the workforce and should not be summed. "
+            "Source: Q17 Copilot time-saved responses and current M365 licence counts."),
     ]))
     story.append(sp(12))
 

@@ -157,6 +157,11 @@ class VisualTextSpec:
     table_label_leading: float = 8.6
     table_value: float = 11.0
     table_value_leading: float = 12.0
+    value_reach_section: float = 8.0
+    value_reach_column_header: float = 6.6
+    value_reach_label: float = 7.6
+    value_reach_label_leading: float = 8.6
+    value_reach_value: float = 11.0
     kpi_value: float = 24.0
     kpi_value_medium: float = 22.0
     kpi_value_compact: float = 17.0

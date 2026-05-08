@@ -2662,22 +2662,27 @@ def build_report():
     story.append(sp(4))
     story.append(Paragraph(
         "Reported value also varied across groups. Workplace Relations recorded the strongest added-value "
-        "result (<b>85.7%</b>), while Employment and Workforce and Corporate and Enabling recorded high "
-        "usefulness results (<b>84.2%</b> and <b>83.3%</b> respectively). Skills and Training recorded "
-        "comparatively weaker results across both measures.", body))
+        "result (<b>85.7%</b>) even though Copilot was also rated useful by most users in that group "
+        "(<b>92.9%</b>). Skills and Training showed the opposite pattern: Copilot was rated useful by "
+        "most users (<b>92.9%</b>), but public tools recorded lower added value beyond Copilot "
+        "(<b>53.8%</b>).", body))
     story.append(visual_spacer())
     story.append(EvidenceMatrixPanel(
         width,
         "GROUP",
-        ["Added value beyond Copilot", "Rated at least moderately useful"],
+        ["Added value beyond Copilot", "Public Gen AI rated useful", "Copilot rated useful"],
         [
-            ("Corporate and Enabling", ["66.7%", "83.3%"], 1),
-            ("Employment and Workforce", ["73.7%", "84.2%"], 1),
-            ("Skills and Training", ["53.8%", "69.2%"], None),
-            ("Workplace Relations", ["85.7%", "78.6%"], 0),
+            ("Corporate and Enabling", ["66.7%", "83.3%", "66.7%"], 1),
+            ("Employment and Workforce", ["73.7%", "84.2%", "75.0%"], 1),
+            ("Skills and Training", ["53.8%", "69.2%", "92.9%"], 2),
+            ("Workplace Relations", ["85.7%", "78.6%", "92.9%"], 0),
         ],
-        first_col_ratio=0.32,
+        first_col_ratio=0.30,
     ))
+    story.append(visual_spacer())
+    story.append(Paragraph(
+        "This suggests some groups saw Copilot as useful but still reported additional value from Public "
+        "Gen AI, while for other groups Public Gen AI was less clearly additive.", body))
     story.append(source_note(
         "Note: Jobs and Skills Australia was excluded because of low sample size (n=3)."))
     story.append(sp(4))

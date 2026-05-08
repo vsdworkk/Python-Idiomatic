@@ -416,10 +416,10 @@ class M365ValueAndReachTable(Flowable):
         self.box_width = width
         self.section_title = section_title
         self.rows = rows
-        self.columns = ["M365 Copilot", "Copilot Chat", "M365 Value", "M365 Coverage"]
+        self.columns = ["M365 Copilot", "Copilot Chat", "M365 Value", "M365 Licence"]
         self.row_h = TABLE_SPEC.matrix_row_height + SPACING.xs
         self.pad = PANEL.padding_medium
-        self._height = 2 * self.pad + 20 + self.row_h * len(rows)
+        self._height = 2 * self.pad + 26 + self.row_h * len(rows)
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -442,7 +442,8 @@ class M365ValueAndReachTable(Flowable):
         first_w = (w - 2 * pad) * 0.35
         col_w = (w - 2 * pad - first_w) / 4
         header_y = h - pad - 4
-        rule_y = header_y - 14
+        subheader_y = header_y - 12
+        rule_y = subheader_y - 8
         data_bottom = rule_y - self.row_h * len(self.rows)
 
         c.setFillColor(DEWR_TEXT_GREY)
@@ -461,6 +462,17 @@ class M365ValueAndReachTable(Flowable):
                 DEWR_TEXT_GREY,
                 col_w - 6,
             )
+
+        self._draw_centered(
+            c,
+            "Average weekly hours saved per user",
+            pad + first_w + col_w,
+            subheader_y,
+            FONT_ITALIC,
+            VISUAL_TEXT.note - 1,
+            DEWR_TEXT_GREY,
+            2 * col_w - 6,
+        )
 
         c.setStrokeColor(DEWR_SOFT_LINE)
         c.setLineWidth(LINES.fine)
@@ -2249,33 +2261,31 @@ def build_report():
             s1_body),
         visual_spacer(),
     ]))
-    story.append(KeepTogether([
-        M365ValueAndReachTable(
-            width,
-            "CLASSIFICATION LEVEL",
-            [
-                ("EL level", "5.4 hrs", "2.0 hrs", "2.7x", "10%", True),
-                ("APS level", "6.0 hrs", "3.5 hrs", "1.7x", "5%", False),
-            ],
-        ),
-        visual_spacer(),
-        M365ValueAndReachTable(
-            width,
-            "ORGANISATIONAL GROUP",
-            [
-                ("Corporate and Enabling", "6.3 hrs", "2.5 hrs", "2.5x", "8%", True),
-                ("Employment and Workforce", "6.3 hrs", "2.9 hrs", "2.2x", "7%", False),
-                ("Skills and Training", "5.4 hrs", "2.9 hrs", "1.9x", "6%", False),
-                ("Workplace Relations", "5.0 hrs", "4.0 hrs", "1.2x", "11%", False),
-            ],
-        ),
-        sp(4),
-        source_note(
-            "Note: M365 value is M365 weekly hours saved divided by Copilot Chat weekly hours saved. "
-            "Coverage uses current M365 licence counts as a share of all staff in each group. "
-            "Classification level and organisational group are separate cuts of the workforce and should not be summed. "
-            "Source: Q17 Copilot time-saved responses and current M365 licence counts."),
-    ]))
+    story.append(M365ValueAndReachTable(
+        width,
+        "CLASSIFICATION LEVEL",
+        [
+            ("EL level", "5.4 hrs", "2.0 hrs", "2.7x", "10%", True),
+            ("APS level", "6.0 hrs", "3.5 hrs", "1.7x", "5%", False),
+        ],
+    ))
+    story.append(visual_spacer())
+    story.append(M365ValueAndReachTable(
+        width,
+        "ORGANISATIONAL GROUP",
+        [
+            ("Corporate and Enabling", "6.3 hrs", "2.5 hrs", "2.5x", "8%", True),
+            ("Employment and Workforce", "6.3 hrs", "2.9 hrs", "2.2x", "7%", False),
+            ("Skills and Training", "5.4 hrs", "2.9 hrs", "1.9x", "6%", False),
+            ("Workplace Relations", "5.0 hrs", "4.0 hrs", "1.2x", "11%", False),
+        ],
+    ))
+    story.append(sp(4))
+    story.append(source_note(
+        "Note: M365 value is M365 weekly hours saved divided by Copilot Chat weekly hours saved. "
+        "Coverage uses current M365 licence counts as a share of all staff in each group. "
+        "Classification level and organisational group are separate cuts of the workforce and should not be summed. "
+        "Source: Q17 Copilot time-saved responses and current M365 licence counts."))
     story.append(sp(12))
 
     # Task types

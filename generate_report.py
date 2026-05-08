@@ -657,6 +657,118 @@ class EvidenceMatrixPanel(Flowable):
                 c.drawCentredString(first_w + i * col_w + col_w / 2, y - 4, value)
 
 
+class GroupedCohortComparisonPanel(Flowable):
+    """Stacked mini tables comparing public-tool and Copilot signals."""
+    def __init__(self, width, row_groups):
+        Flowable.__init__(self)
+        self.box_width = width
+        self.row_groups = row_groups
+        self.pad = PANEL.padding
+        self.header_h = TABLE_SPEC.comparison_header_height
+        self.group_h = TABLE_SPEC.comparison_group_header_height
+        self.group_gap = TABLE_SPEC.comparison_group_gap
+        self.row_h = TABLE_SPEC.comparison_row_height
+        data_h = sum(self.group_h + self.row_h * len(group["rows"]) for group in row_groups)
+        gap_h = self.group_gap * max(len(row_groups) - 1, 0)
+        self._height = data_h + gap_h
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def _draw_centered(self, c, text, x, y, font, size, color, max_width):
+        c.setFillColor(color)
+        fitted = fit_text_size(c, text, font, size, max_width, min_size=5.8)
+        c.setFont(font, fitted)
+        c.drawCentredString(x, y, text)
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = self.pad
+
+        block_x = pad
+        block_w = w - 2 * pad
+        label_w = block_w * TABLE_SPEC.comparison_label_width_ratio
+        col_w = (block_w - label_w) / 2
+        y = h
+        for group_idx, group in enumerate(self.row_groups):
+            card_h = self.group_h + self.row_h * len(group["rows"])
+            card_top = y
+            card_bottom = card_top - card_h
+            draw_panel_background(c, 0, card_bottom, w, card_h, stroke_width=0, radius=0)
+
+            value_x = [
+                block_x + label_w + col_w / 2,
+                block_x + label_w + col_w * 1.5,
+            ]
+
+            header_y = card_top - TABLE_SPEC.comparison_header_y_offset
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont(FONT_BOLD, VISUAL_TEXT.comparison_group_label)
+            c.drawString(block_x, header_y, group["label"].upper())
+
+            for i, column in enumerate(["APS LEVEL", "EL LEVEL"]):
+                self._draw_centered(
+                    c,
+                    column,
+                    value_x[i],
+                    header_y,
+                    FONT_BOLD,
+                    VISUAL_TEXT.comparison_column_header,
+                    DEWR_DARK_GREY,
+                    col_w - TABLE_SPEC.comparison_column_header_inset,
+                )
+
+            rule_y = card_top - self.group_h
+            c.setStrokeColor(DEWR_SOFT_LINE)
+            c.setLineWidth(LINES.regular)
+            c.line(block_x, rule_y, block_x + block_w, rule_y)
+
+            y = rule_y
+
+            for row_idx, (label, values, highlight_idx) in enumerate(group["rows"]):
+                row_top = y
+                row_bottom = y - self.row_h
+                if row_idx:
+                    c.setStrokeColor(DEWR_SOFT_LINE)
+                    c.setLineWidth(LINES.hairline)
+                    c.line(block_x, row_top, block_x + block_w, row_top)
+
+                p = Paragraph(label, ParagraphStyle(
+                    "cohort_comparison_measure",
+                    fontName=FONT_BOLD,
+                    fontSize=VISUAL_TEXT.comparison_measure_label,
+                    leading=VISUAL_TEXT.comparison_measure_label_leading,
+                    textColor=DEWR_DARK_GREY,
+                ))
+                _, label_h = p.wrap(label_w - TABLE_SPEC.comparison_label_wrap_inset, self.row_h)
+                p.drawOn(c, block_x, row_bottom + (self.row_h - label_h) / 2)
+
+                value_y = row_bottom + TABLE_SPEC.comparison_value_y_offset
+                for i, value in enumerate(values):
+                    highlighted = (
+                        highlight_idx == "all"
+                        or (isinstance(highlight_idx, (list, tuple, set)) and i in highlight_idx)
+                        or i == highlight_idx
+                    )
+                    self._draw_centered(
+                        c,
+                        value,
+                        value_x[i],
+                        value_y,
+                        FONT_BOLD,
+                        VISUAL_TEXT.comparison_value,
+                        DEWR_DARK_GREEN if highlighted else DEWR_DARK_GREY,
+                        col_w - TABLE_SPEC.comparison_value_label_inset,
+                    )
+
+                y -= self.row_h
+
+            y = card_bottom - self.group_gap
+
+
 class MarginalValuePanel(Flowable):
     """Compact two-part panel for public-tool marginal value signals."""
     def __init__(self, width):
@@ -1119,6 +1231,72 @@ class ComfortDataHandlingPanel(Flowable):
                 c.drawRightString(bar_x - 6, bar_y - 1, sublabel)
                 c.setFont(FONT_BOLD, VISUAL_TEXT.chart_value_label)
                 c.drawString(bar_x + bar_w + 8, bar_y - 1, f"{value:.1f}%")
+
+
+class DataHandlingCrosstabPanel(Flowable):
+    """Focused gap visual for users who both copied/pasted and uploaded documents."""
+    def __init__(self, width):
+        Flowable.__init__(self)
+        self.box_width = width
+        self._height = 128
+        self.rows = [
+            ("Comfortable or very comfortable", 41.3, DEWR_DARK_GREEN),
+            ("Uncomfortable", 20.0, DEWR_DARK_GREY),
+        ]
+
+    def wrap(self, availWidth, availHeight):
+        self.box_width = availWidth
+        return self.box_width, self._height
+
+    def _draw_fit_centered(self, c, text, x, y, font, size, color, max_width, min_size=4.8):
+        c.setFillColor(color)
+        fitted = fit_text_size(c, text, font, size, max_width, min_size=min_size)
+        c.setFont(font, fitted)
+        c.drawCentredString(x, y, text)
+
+    def draw(self):
+        c = self.canv
+        w = self.box_width
+        h = self._height
+        pad = PANEL.padding_medium
+
+        draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header)
+        c.drawString(pad, h - 20, "SHARE WHO BOTH COPY/PASTED AND UPLOADED DOCUMENTS")
+
+        c.setStrokeColor(DEWR_SOFT_LINE)
+        c.setLineWidth(LINES.fine)
+        c.line(pad, h - 34, w - pad, h - 34)
+
+        label_w = w * 0.32
+        bar_x = pad + label_w
+        bar_w = w - bar_x - pad - 34
+        max_value = max(value for _, value, _ in self.rows)
+        row_h = 30
+        bar_h = 12
+        start_y = h - 62
+
+        for row_idx, (row_label, value, color) in enumerate(self.rows):
+            y = start_y - row_idx * row_h
+            label_style = ParagraphStyle(
+                "data_handling_gap_row",
+                fontName=FONT_BOLD if row_idx == 0 else FONT_REGULAR,
+                fontSize=VISUAL_TEXT.stacked_row_label,
+                leading=VISUAL_TEXT.stacked_row_label_leading,
+                textColor=DEWR_DARK_GREY,
+            )
+            p = Paragraph(row_label, label_style)
+            _, label_h = p.wrap(label_w - 8, row_h)
+            p.drawOn(c, pad, y - label_h / 2 + 3)
+
+            c.setFillColor(color)
+            fill_w = bar_w * (value / max_value)
+            c.rect(bar_x, y - 2, fill_w, bar_h, fill=1, stroke=0)
+            c.setFillColor(color)
+            c.setFont(FONT_BOLD, VISUAL_TEXT.chart_value_label)
+            c.drawString(bar_x + fill_w + 7, y, f"{round(value):.0f}%")
 
 
 class PublicToolTaskProfilePanel(Flowable):
@@ -2124,40 +2302,52 @@ def build_report():
         data = [
             [
                 Paragraph("MEASURE", measure_header_style),
-                Paragraph("COPILOT CHAT", header_style),
-                Paragraph("M365 COPILOT", header_style),
+                Paragraph("CHAT", header_style),
+                Paragraph("M365", header_style),
+                Paragraph("AT LEAST SOME<br/>EXPERIENCE", header_style),
+                Paragraph("NO/BASIC<br/>EXPERIENCE", header_style),
             ],
             [
                 Paragraph("Public AI rated at least moderately useful", measure_style),
                 Paragraph("81.8%", value_style_green),
                 Paragraph("78.6%", value_style_dark),
+                Paragraph("", value_style_dark),
+                Paragraph("", value_style_dark),
             ],
             [
                 Paragraph("Copilot rated at least moderately useful", measure_style),
                 Paragraph("69.7%", value_style_dark),
                 Paragraph("92.9%", value_style_green),
+                Paragraph("", value_style_dark),
+                Paragraph("", value_style_dark),
             ],
             [
                 Paragraph("Public AI used weekly or more", measure_style),
                 Paragraph("54.5%", value_style_green),
                 Paragraph("50.0%", value_style_dark),
+                Paragraph("", value_style_dark),
+                Paragraph("", value_style_dark),
             ],
             [
                 Paragraph("Copilot used weekly or more", measure_style),
                 Paragraph("57.6%", value_style_dark),
                 Paragraph("85.7%", value_style_green),
+                Paragraph("", value_style_dark),
+                Paragraph("", value_style_dark),
             ],
             [
                 Paragraph("Public AI added value beyond Copilot", measure_style),
                 Paragraph("75.0%", value_style_dark),
                 Paragraph("82.1%", value_style_green),
+                Paragraph("", value_style_dark),
+                Paragraph("", value_style_dark),
             ],
         ]
-        first_w = width * 0.52
-        col_w = (width - first_w) / 2
+        first_w = width * 0.38
+        col_w = (width - first_w) / 4
         table = Table(
             data,
-            colWidths=[first_w, col_w, col_w],
+            colWidths=[first_w] + [col_w] * 4,
             rowHeights=[TABLE_SPEC.access_header_height] + [TABLE_SPEC.access_row_height] * (len(data) - 1),
         )
         table.setStyle(TableStyle([
@@ -2171,8 +2361,8 @@ def build_report():
             ("ALIGN", (0, 0), (0, 0), "LEFT"),
             ("ALIGN", (1, 1), (-1, -1), "CENTER"),
             ("ALIGN", (0, 0), (0, -1), "LEFT"),
-            ("LEFTPADDING", (0, 0), (-1, -1), TABLE_SPEC.cell_padding_x),
-            ("RIGHTPADDING", (0, 0), (-1, -1), TABLE_SPEC.cell_padding_x),
+            ("LEFTPADDING", (0, 0), (-1, -1), SPACING.md),
+            ("RIGHTPADDING", (0, 0), (-1, -1), SPACING.md),
             ("TOPPADDING", (0, 0), (-1, -1), TABLE_SPEC.cell_padding_y),
             ("BOTTOMPADDING", (0, 0), (-1, -1), TABLE_SPEC.cell_padding_y),
         ]))
@@ -2444,25 +2634,28 @@ def build_report():
     story.append(Paragraph(
         "Classification-level patterns differed by measure. EL level users were slightly more likely to use "
         "public tools weekly or more (<b>53.6% vs 51.5%</b>), while APS level users were more likely to rate "
-        "both public tools (<b>87.9% vs 71.4%</b>) and Copilot (<b>84.8% vs 75.0%</b>) as at least moderately useful.", body))
-    story.append(sp(5))
-    story.append(key_finding(
-        "EL level users were more likely to report that public tools added value beyond Copilot "
-        "(<b>78.6%</b> vs <b>66.7%</b> for APS level users)."))
+        "both public tools (<b>87.9% vs 71.4%</b>) and Copilot (<b>84.8% vs 75.0%</b>) as at least moderately useful. "
+        "EL level users were also more likely to report that public tools added value beyond Copilot "
+        "(<b>78.6%</b> vs <b>66.7%</b> for APS level users).", body))
     story.append(visual_spacer())
-    story.append(EvidenceMatrixPanel(
+    story.append(GroupedCohortComparisonPanel(
         width,
-        "MEASURE",
-        ["APS level", "EL level"],
         [
-            ("Public tools", None, None),
-            ("Used weekly or more", ["51.5%", "53.6%"], 1),
-            ("Rated at least moderately useful", ["87.9%", "71.4%"], 0),
-            ("Copilot", None, None),
-            ("Used weekly or more", ["72.7%", "67.9%"], 0),
-            ("Rated at least moderately useful", ["84.8%", "75.0%"], 0),
+            {
+                "label": "Public tools",
+                "rows": [
+                    ("Used weekly or more", ["51.5%", "53.6%"], 1),
+                    ("Rated moderately useful+", ["87.9%", "71.4%"], 0),
+                ],
+            },
+            {
+                "label": "Copilot",
+                "rows": [
+                    ("Used weekly or more", ["72.7%", "67.9%"], 0),
+                    ("Rated moderately useful+", ["84.8%", "75.0%"], 0),
+                ],
+            },
         ],
-        first_col_ratio=0.56,
     ))
     story.append(sp(8))
     story.append(Paragraph("Organisational group", mini_heading))
@@ -2574,26 +2767,17 @@ def build_report():
     story.append(UncertaintyAreasPanel(width))
     story.append(PageBreak())
 
-    story.append(Paragraph("3.3 Respondents were more likely to copy/paste information than upload documents", h3))
+    story.append(Paragraph("3.3 Comfort shaped whether users combined copy/paste and document upload", h3))
     story.append(Paragraph(
-        "Reported data-handling behaviour varied by activity. Copying and pasting information "
-        "into public tools was more common than uploading documents. Among survey respondents, "
-        "<b>70.5%</b> copied and pasted information, while <b>42.6%</b> uploaded documents.", body))
+        "The clearest data-handling difference was whether respondents combined both behaviours. "
+        "Comfortable or very comfortable users were about twice as likely as uncomfortable users "
+        "to both copy/paste information and upload documents.", body))
     story.append(visual_spacer())
-    story.append(HorizontalBarPanel(width, "MEASURE", [
-        ("Copied and pasted information", 70.5),
-        ("Uploaded documents", 42.6),
-    ], max_value=100, primary_count=1))
+    story.append(DataHandlingCrosstabPanel(width))
     story.append(sp(6))
     story.append(Paragraph(
-        "Comfort level appeared to shape the type of data-handling behaviour. Respondents who were "
-        "comfortable or very comfortable using public tools were much more likely to upload documents "
-        "(<b>47.8%</b> vs <b>26.7%</b>), while copy/paste behaviour was more similar across comfort "
-        "groups (<b>71.7%</b> vs <b>66.7%</b>). This suggests lower comfort may have shifted users "
-        "toward more cautious forms of information sharing, such as copy/paste, rather than full "
-        "document upload.", body))
-    story.append(visual_spacer())
-    story.append(ComfortDataHandlingPanel(width))
+        "This suggests confidence affected not just whether staff used public tools, but how far "
+        "they went in sharing information.", body))
     story.append(sp(8))
 
     story.append(Paragraph("3.4 Safety communications were rated effective by most survey respondents", h3))

@@ -1,0 +1,4 @@
+interface:
+  display_name: "ReportLab Docs CLI"
+  short_description: "Use the local ReportLab docs CLI well"
+  default_prompt: "Use $reportlab-docs-cli to inspect ReportLab APIs, critique a generated PDF, search the reference PDF, and verify a small PDF example."

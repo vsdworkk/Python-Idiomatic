@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reportlab-docs-cli"
+version = "0.1.0"
+description = "CLI for exploring ReportLab APIs, docs.reportlab.com links, and generated PDF design quality."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "DEWR/OCE" }
+]
+keywords = ["reportlab", "pdf", "cli", "design-review", "documentation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Documentation",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Printing",
+]
+dependencies = ["reportlab>=4"]
+
+[project.optional-dependencies]
+pdf = ["pypdf>=6", "pdfplumber>=0.11", "pymupdf>=1.24"]
+dev = ["pypdf>=6", "pdfplumber>=0.11", "pymupdf>=1.24"]
+
+[project.scripts]
+reportlab-docs = "reportlab_docs_cli.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["reportlab_docs_cli*"]

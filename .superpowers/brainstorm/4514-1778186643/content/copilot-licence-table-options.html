@@ -1,0 +1,72 @@
+<h2>How to handle the new Copilot licence / usage section under 1.1</h2>
+<p class="subtitle">Three treatments for the table, balancing evidence density with readability in the report body.</p>
+
+<style>
+  .option-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:18px; align-items:stretch; }
+  .table-card { border:1px solid #d7dadd; background:#fff; border-radius:8px; padding:14px; cursor:pointer; }
+  .table-card:hover { border-color:#5d7333; box-shadow:0 0 0 2px rgba(93,115,51,.12); }
+  .tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; color:#5d7333; text-transform:uppercase; margin-bottom:8px; }
+  .small-table { width:100%; border-collapse:collapse; font-size:11px; margin-top:10px; color:#30343a; }
+  .small-table th { text-align:left; font-size:10px; color:#30343a; border-bottom:1px solid #d8dadd; padding:6px 4px; }
+  .small-table td { border-bottom:1px solid #eceeef; padding:6px 4px; vertical-align:top; }
+  .section-row td { background:#f1f3f4; font-weight:700; color:#30343a; }
+  .muted { color:#6a7078; font-size:12px; line-height:1.35; }
+  .metric-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+  .metric { background:#f6f7f8; padding:9px; border-left:4px solid #5d7333; }
+  .metric b { display:block; font-size:18px; color:#3f4a35; }
+  .bars { margin-top:10px; }
+  .bar-row { display:grid; grid-template-columns:72px 1fr 40px; gap:8px; align-items:center; font-size:11px; margin:6px 0; }
+  .bar { height:7px; background:#e1e4e5; }
+  .fill { height:100%; background:#5d7333; }
+  .note { margin-top:10px; font-size:11px; color:#6a7078; font-style:italic; }
+</style>
+
+<div class="option-grid">
+  <div class="table-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="tag">Option A · Full detail table</div>
+    <h3>Keep the source table mostly intact</h3>
+    <p class="muted">Best for auditability, but it creates a very wide table and forces small type. It mixes licence coverage, sample size, productivity, usefulness and frequency in one object.</p>
+    <table class="small-table">
+      <tr><th>Category</th><th>% licence</th><th>Hours saved</th><th>Useful</th><th>Weekly</th><th>Daily</th></tr>
+      <tr><td>APS</td><td>4.5%</td><td>6.0 / 3.5</td><td>66.7 / 38.1</td><td>86.7 / 57.1</td><td>53.3 / 28.6</td></tr>
+      <tr><td>EL</td><td>9.9%</td><td>5.4 / 1.9</td><td>68.8 / 33.3</td><td>75.0 / 50.0</td><td>75.0 / 22.2</td></tr>
+      <tr><td>Corp</td><td>7.9%</td><td>6.3 / 2.5</td><td>80.0 / 50.0</td><td>80.0 / 60.0</td><td>80.0 / 20.0</td></tr>
+    </table>
+    <p class="note">Risk: too much table for the main narrative.</p>
+  </div>
+
+  <div class="table-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="tag">Option B · Recommended</div>
+    <h3>Split into a short evidence block plus compact tables</h3>
+    <p class="muted">Use this under 1.1: it supports the time-savings story while keeping the visual readable. Keep the full source table in report-analysis.md or appendix notes.</p>
+    <div class="metric-strip">
+      <div class="metric"><b>4.5% vs 9.9%</b>APS vs EL licence coverage</div>
+      <div class="metric"><b>6.0 vs 3.5 hrs</b>APS M365 vs Chat time saved</div>
+      <div class="metric"><b>5.4 vs 1.9 hrs</b>EL M365 vs Chat time saved</div>
+    </div>
+    <table class="small-table">
+      <tr><th>Measure</th><th>APS level</th><th>EL level</th></tr>
+      <tr class="section-row"><td colspan="3">Licence coverage</td></tr>
+      <tr><td>% with M365 licence</td><td>4.5%</td><td>9.9%</td></tr>
+      <tr class="section-row"><td colspan="3">Copilot time saved</td></tr>
+      <tr><td>M365 Copilot</td><td>6.0 hrs/wk</td><td>5.4 hrs/wk</td></tr>
+      <tr><td>Copilot Chat</td><td>3.5 hrs/wk</td><td>1.9 hrs/wk</td></tr>
+    </table>
+    <p class="note">Add usefulness / weekly / daily as a second compact table only if space allows.</p>
+  </div>
+
+  <div class="table-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="tag">Option C · Narrative + task footprint</div>
+    <h3>Use body text for licence story, then show task footprint</h3>
+    <p class="muted">Best if the goal is behavioural context rather than segment performance. This avoids a dense licence table and gives readers a ranked view of what Copilot was used for.</p>
+    <div class="bars">
+      <div class="bar-row"><span>Summarising</span><div class="bar"><div class="fill" style="width:78.6%"></div></div><b>78.6%</b></div>
+      <div class="bar-row"><span>Drafting</span><div class="bar"><div class="fill" style="width:68.6%"></div></div><b>68.6%</b></div>
+      <div class="bar-row"><span>Editing</span><div class="bar"><div class="fill" style="width:67.1%"></div></div><b>67.1%</b></div>
+      <div class="bar-row"><span>Research</span><div class="bar"><div class="fill" style="width:54.3%"></div></div><b>54.3%</b></div>
+    </div>
+    <p class="note">Risk: task footprint may fit better in 1.3 than directly under 1.1.</p>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:18px;">My recommendation: Option B under 1.1, with the task footprint left in / near 1.3 unless we need a high-level “what Copilot was used for” bridge.</p>

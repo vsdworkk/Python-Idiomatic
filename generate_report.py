@@ -4,8 +4,8 @@ from reportlab.lib.colors import white
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, KeepTogether
+    SimpleDocTemplate, Paragraph, Spacer, Table,
+    PageBreak, KeepTogether, CondPageBreak
 )
 from reportlab.platypus.flowables import Flowable
 import os
@@ -21,6 +21,7 @@ from report_design_system import (
     PanelSpec,
     Radii,
     Spacing,
+    StoryRhythmSpec,
     TableSpec,
     VisualTextSpec,
     BAR_TRACK,
@@ -31,8 +32,12 @@ from report_design_system import (
     FOGGED_GRAPHITE,
     KEY_FINDING_BACKGROUND,
     build_paragraph_styles,
+    build_key_finding_matrix_exhibit,
+    draw_wrapped_text,
     draw_panel_background,
+    access_evidence_table_style,
     fit_text_size,
+    make_visual_styles,
     register_fonts,
     DEWR_GREEN,
     DEWR_DARK_GREEN,
@@ -60,6 +65,8 @@ LINES = Lines()
 RADII = Radii()
 CHART = ChartSpec()
 VISUAL_TEXT = VisualTextSpec()
+VISUAL_STYLES = make_visual_styles(REPORT_FONTS)
+RHYTHM = StoryRhythmSpec()
 PANEL = PanelSpec()
 KPI = KpiSpec()
 CHART_LAYOUT = ChartLayoutSpec()
@@ -71,6 +78,47 @@ OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "Outputs")
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, "DEWR_Public_AI_B.pdf")
 COVER_LOCKUP_PATH = os.path.join(os.path.dirname(__file__), "assets", "dewr_cover_lockup_white.png")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def visual_style(name, role, **overrides):
+    parent = overrides.pop("parent", VISUAL_STYLES[role])
+    return ParagraphStyle(name, parent=parent, **overrides)
+
+
+def visual_title_style(name, **overrides):
+    return visual_style(name, "visual_title", **overrides)
+
+
+def callout_text_style(name, text_color=white):
+    return visual_style(
+        name,
+        "card_body",
+        fontName=FONT_BOLD,
+        fontSize=VISUAL_TEXT.callout_text,
+        leading=VISUAL_TEXT.callout_text_leading,
+        textColor=text_color,
+    )
+
+
+def horizontal_callout_text_style(name):
+    return visual_style(
+        name,
+        "card_body",
+        fontSize=VISUAL_TEXT.horizontal_callout_text,
+        leading=VISUAL_TEXT.horizontal_callout_text_leading,
+        textColor=DEWR_DARK_GREY,
+    )
+
+
+def key_finding_style(name):
+    return visual_style(
+        name,
+        "card_body",
+        fontName=FONT_BOLD,
+        fontSize=VISUAL_TEXT.key_finding,
+        leading=VISUAL_TEXT.key_finding_leading,
+        textColor=DEWR_DARK_GREY,
+    )
 
 
 class CalloutBox(Flowable):
@@ -95,23 +143,32 @@ class CalloutBox(Flowable):
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
-        style = ParagraphStyle('callout_measure', fontName=FONT_BOLD,
-                               fontSize=self.font_size, leading=self.font_size + 4,
-                               textColor=self.text_color)
+        style = callout_text_style("callout_measure", self.text_color)
+        if self.font_size != VISUAL_TEXT.callout_text:
+            style.fontSize = self.font_size
         p = Paragraph(self.text, style)
         w, h = p.wrap(self.box_width - 2 * self.padding, availHeight)
         self._height = h + 2 * self.padding
         return self.box_width, self._height
 
     def draw(self):
-        self.canv.setFillColor(self.bg_color)
-        self.canv.rect(0, 0, self.box_width, self._height, fill=1, stroke=0)
-        style = ParagraphStyle('callout_draw', fontName=FONT_BOLD,
-                               fontSize=self.font_size, leading=self.font_size + 4,
-                               textColor=self.text_color)
-        p = Paragraph(self.text, style)
-        p.wrap(self.box_width - 2 * self.padding, self._height)
-        p.drawOn(self.canv, self.padding, self.padding)
+        c = self.canv
+        c.saveState()
+        c.setFillColor(self.bg_color)
+        c.rect(0, 0, self.box_width, self._height, fill=1, stroke=0)
+        style = callout_text_style("callout_draw", self.text_color)
+        if self.font_size != VISUAL_TEXT.callout_text:
+            style.fontSize = self.font_size
+        draw_wrapped_text(
+            c,
+            self.text,
+            style,
+            self.padding,
+            self._height - self.padding,
+            self.box_width - 2 * self.padding,
+            self._height,
+        )
+        c.restoreState()
 
 
 class StatBox(Flowable):
@@ -241,6 +298,7 @@ class ValueSignalsPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -250,7 +308,7 @@ class ValueSignalsPanel(Flowable):
         top_offset = 20 if self.title else 0
         if self.title:
             c.setFillColor(DEWR_DARK_GREY)
-            c.setFont(FONT_BOLD, VISUAL_TEXT.table_value)
+            c.setFont(FONT_BOLD, VISUAL_TEXT.visual_title)
             c.drawString(pad, h - 20, self.title)
             c.setStrokeColor(DEWR_LIGHT_GREY)
             c.setLineWidth(LINES.hairline)
@@ -262,25 +320,19 @@ class ValueSignalsPanel(Flowable):
         for i, (value, label) in enumerate(self.items):
             x = pad + i * col_w
             cx = x + col_w / 2
-            if i:
-                c.setStrokeColor(DEWR_LIGHT_GREY)
-                c.setLineWidth(LINES.fine)
-                c.line(x, 12, x, h - 12 - top_offset)
             value_color = DEWR_RED if "(" in value else (DEWR_GREEN if i < self.primary_count else DEWR_DARK_GREY)
             c.setFillColor(value_color)
             value_size = VISUAL_TEXT.kpi_value_medium if len(value) <= 8 else VISUAL_TEXT.kpi_value_compact
             c.setFont(FONT_BOLD, value_size)
             c.drawCentredString(cx, value_y, value)
-            p = Paragraph(label, ParagraphStyle(
+            label_style = visual_style(
                 "value_signal_label",
-                fontName=FONT_REGULAR,
-                fontSize=VISUAL_TEXT.kpi_caption,
-                leading=VISUAL_TEXT.kpi_caption_leading,
+                "kpi_caption",
                 alignment=TA_CENTER,
                 textColor=DEWR_DARK_GREY,
-            ))
-            _, label_h = p.wrap(col_w - 14, 48)
-            p.drawOn(c, x + 7, label_top_y - label_h)
+            )
+            draw_wrapped_text(c, label, label_style, x + 7, label_top_y, col_w - 14, 48)
+        c.restoreState()
 
 
 class CalloutSignalsPanel(Flowable):
@@ -300,13 +352,7 @@ class CalloutSignalsPanel(Flowable):
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
-        style = ParagraphStyle(
-            "callout_signals_measure",
-            fontName=FONT_BOLD,
-            fontSize=VISUAL_TEXT.callout_text,
-            leading=VISUAL_TEXT.callout_text_leading,
-            textColor=white,
-        )
+        style = callout_text_style("callout_signals_measure")
         p = Paragraph(self.text, style)
         _, self._text_height = p.wrap(self.box_width - 2 * self.padding, availHeight)
         self._height = self._text_height + self.card_height + self.gap + 2 * self.padding
@@ -314,6 +360,7 @@ class CalloutSignalsPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = self.padding
@@ -321,16 +368,15 @@ class CalloutSignalsPanel(Flowable):
         c.setFillColor(self.bg_color)
         c.rect(0, 0, w, h, fill=1, stroke=0)
 
-        style = ParagraphStyle(
-            "callout_signals_draw",
-            fontName=FONT_BOLD,
-            fontSize=VISUAL_TEXT.callout_text,
-            leading=VISUAL_TEXT.callout_text_leading,
-            textColor=white,
+        draw_wrapped_text(
+            c,
+            self.text,
+            callout_text_style("callout_signals_draw"),
+            pad,
+            h - pad,
+            w - 2 * pad,
+            self._text_height,
         )
-        p = Paragraph(self.text, style)
-        p.wrap(w - 2 * pad, self._text_height)
-        p.drawOn(c, pad, h - pad - self._text_height)
 
         card_x = pad
         card_y = pad
@@ -353,16 +399,14 @@ class CalloutSignalsPanel(Flowable):
             value_size = VISUAL_TEXT.kpi_value_medium if len(value) <= 8 else VISUAL_TEXT.kpi_value_compact
             c.setFont(FONT_BOLD, value_size)
             c.drawCentredString(cx, value_y, value)
-            label_p = Paragraph(label, ParagraphStyle(
+            label_style = visual_style(
                 "callout_signal_label",
-                fontName=FONT_REGULAR,
-                fontSize=VISUAL_TEXT.kpi_caption,
-                leading=VISUAL_TEXT.kpi_caption_leading,
+                "kpi_caption",
                 alignment=TA_CENTER,
                 textColor=DEWR_DARK_GREY,
-            ))
-            _, label_h = label_p.wrap(col_w - 14, 28)
-            label_p.drawOn(c, x + 7, label_top_y - label_h)
+            )
+            draw_wrapped_text(c, label, label_style, x + 7, label_top_y, col_w - 14, 28)
+        c.restoreState()
 
 
 class TimeSavingsPanel(Flowable):
@@ -378,6 +422,7 @@ class TimeSavingsPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -407,6 +452,7 @@ class TimeSavingsPanel(Flowable):
             c.setFillColor(DEWR_DARK_GREY)
             c.setFont(FONT_REGULAR, VISUAL_TEXT.time_savings_context)
             c.drawRightString(w - pad, y - 12, daily_label)
+        c.restoreState()
 
 
 class M365ValueAndReachTable(Flowable):
@@ -419,7 +465,7 @@ class M365ValueAndReachTable(Flowable):
         self.columns = ["M365 Copilot", "Copilot Chat", "M365 Value", "M365 Licence"]
         self.row_h = TABLE_SPEC.matrix_row_height + SPACING.xs
         self.pad = PANEL.padding_medium
-        self._height = 2 * self.pad + 26 + self.row_h * len(rows)
+        self._height = 2 * self.pad + 40 + self.row_h * len(rows)
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -433,6 +479,7 @@ class M365ValueAndReachTable(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = self.pad
@@ -441,14 +488,15 @@ class M365ValueAndReachTable(Flowable):
 
         first_w = (w - 2 * pad) * 0.35
         col_w = (w - 2 * pad - first_w) / 4
-        header_y = h - pad - 4
+        title_y = h - pad - 4
+        header_y = title_y - 18
         subheader_y = header_y - 12
         rule_y = subheader_y - 8
         data_bottom = rule_y - self.row_h * len(self.rows)
 
         c.setFillColor(DEWR_TEXT_GREY)
-        c.setFont(FONT_BOLD, VISUAL_TEXT.value_reach_column_header)
-        c.drawString(pad, header_y, self.section_title)
+        c.setFont(FONT_BOLD, VISUAL_TEXT.visual_title)
+        c.drawString(pad, title_y, self.section_title)
 
         for idx, col in enumerate(self.columns):
             cx = pad + first_w + col_w * idx + col_w / 2
@@ -478,17 +526,19 @@ class M365ValueAndReachTable(Flowable):
         c.setLineWidth(LINES.fine)
         c.line(pad, rule_y, w - pad, rule_y)
 
-        label_style = ParagraphStyle(
+        label_style = visual_style(
             "value_reach_label",
+            "table_label",
             fontName=FONT_REGULAR,
             fontSize=VISUAL_TEXT.value_reach_label,
             leading=VISUAL_TEXT.value_reach_label_leading,
             textColor=DEWR_DARK_GREY,
         )
-        label_style_bold = ParagraphStyle(
+        label_style_bold = visual_style(
             "value_reach_label_bold",
+            "table_label",
             parent=label_style,
-            fontName=FONT_BOLD,
+            textColor=DEWR_DARK_GREEN,
         )
 
         for row_idx, (label, m365, chat, multiplier, coverage, emphasis) in enumerate(self.rows):
@@ -513,6 +563,7 @@ class M365ValueAndReachTable(Flowable):
             for idx, (value, font, color, size) in enumerate(values):
                 cx = pad + first_w + col_w * idx + col_w / 2
                 self._draw_centered(c, value, cx, baseline, font, size, color, col_w - 8)
+        c.restoreState()
 
 
 class CopilotEngagementDeltaPanel(Flowable):
@@ -533,6 +584,7 @@ class CopilotEngagementDeltaPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -561,7 +613,7 @@ class CopilotEngagementDeltaPanel(Flowable):
                 c.line(pad, y + 16, w - pad, y + 16)
 
             c.setFillColor(DEWR_NAVY)
-            c.setFont(FONT_BOLD, VISUAL_TEXT.table_label)
+            c.setFont(FONT_REGULAR, VISUAL_TEXT.table_label)
             c.drawString(pad, y, label)
 
             values = [m365, chat]
@@ -569,19 +621,24 @@ class CopilotEngagementDeltaPanel(Flowable):
                 c.setFillColor(DEWR_DARK_GREEN if i == 0 else DEWR_NAVY)
                 c.setFont(FONT_BOLD, VISUAL_TEXT.table_value)
                 c.drawCentredString(first_w + i * col_w + col_w / 2, y, value)
+        c.restoreState()
 
 
 class EvidenceMatrixPanel(Flowable):
     """Compact grey matrix for comparing metrics across groups or tools."""
-    def __init__(self, width, title, columns, rows, first_col_ratio=0.42):
+    def __init__(self, width, title, columns, rows, first_col_ratio=0.42, first_header=None, visual_title_text=None):
         Flowable.__init__(self)
         self.box_width = width
-        self.title = title
+        self.title = visual_title_text
+        self.first_header = first_header or title
         self.columns = columns
         self.rows = rows
         self.first_col_ratio = first_col_ratio
         self.row_h = TABLE_SPEC.matrix_row_height
-        self.header_h = TABLE_SPEC.matrix_header_height if len(rows) > 1 else TABLE_SPEC.matrix_header_height_single
+        if self.title:
+            self.header_h = TABLE_SPEC.matrix_header_height if len(rows) > 1 else TABLE_SPEC.matrix_header_height_single
+        else:
+            self.header_h = 38.0
         self._height = self.header_h + self.row_h * len(rows)
 
     def wrap(self, availWidth, availHeight):
@@ -590,6 +647,7 @@ class EvidenceMatrixPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -599,32 +657,47 @@ class EvidenceMatrixPanel(Flowable):
         first_w = w * self.first_col_ratio
         data_w = w - first_w - pad
         col_w = data_w / len(self.columns)
-        head_y = h - 22
+        if self.title:
+            title_y = h - 18
+            header_y = h - 38
+            rule_y = h - 44
+            first_row_y = h - 65
 
-        c.setFillColor(DEWR_DARK_GREY)
-        c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header_small)
-        c.drawString(pad, head_y, self.title)
-        column_header_style = ParagraphStyle(
+            c.setFillColor(DEWR_DARK_GREY)
+            c.setFont(FONT_BOLD, VISUAL_TEXT.visual_title)
+            c.drawString(pad, title_y, self.title)
+        else:
+            header_y = h - 20
+            rule_y = h - 34
+            first_row_y = h - 55
+
+        column_header_style = visual_style(
             "matrix_column_header",
-            fontName=FONT_BOLD,
-            fontSize=VISUAL_TEXT.table_header,
-            leading=VISUAL_TEXT.table_header_leading,
+            "table_header",
             alignment=TA_CENTER,
             textColor=DEWR_DARK_GREY,
         )
+        first_header_style = visual_style(
+            "matrix_first_header",
+            "table_header",
+            textColor=DEWR_DARK_GREY,
+        )
+        first_header = Paragraph(self.first_header.upper(), first_header_style)
+        _, first_header_h = first_header.wrap(first_w - pad - 4, 24)
+        first_header.drawOn(c, pad, header_y - first_header_h / 2)
         for i, col in enumerate(self.columns):
             header_text = col.replace("<br/>", "\n").upper().replace("\n", "<br/>")
             p = Paragraph(header_text, column_header_style)
             _, ph = p.wrap(col_w - 6, 26)
-            p.drawOn(c, first_w + i * col_w + 3, h - 18 - ph / 2)
+            p.drawOn(c, first_w + i * col_w + 3, header_y - ph / 2)
 
         c.setStrokeColor(DEWR_LIGHT_GREY)
         c.setLineWidth(LINES.fine)
-        c.line(0, h - 36, w, h - 36)
+        c.line(0, rule_y, w, rule_y)
 
         for r_idx, row in enumerate(self.rows):
             label, values, highlight_idx = row
-            y = h - 57 - r_idx * self.row_h
+            y = first_row_y - r_idx * self.row_h
             if r_idx:
                 c.setStrokeColor(DEWR_SOFT_LINE)
                 c.setLineWidth(LINES.fine)
@@ -632,15 +705,13 @@ class EvidenceMatrixPanel(Flowable):
 
             if values is None:
                 c.setFillColor(DEWR_DARK_GREY)
-                c.setFont(FONT_BOLD, VISUAL_TEXT.table_label)
+                c.setFont(FONT_BOLD, VISUAL_TEXT.table_header)
                 c.drawString(pad, y, label)
                 continue
 
-            p = Paragraph(label, ParagraphStyle(
+            p = Paragraph(label, visual_style(
                 "matrix_label",
-                fontName=FONT_BOLD,
-                fontSize=VISUAL_TEXT.table_label,
-                leading=VISUAL_TEXT.table_label_leading,
+                "table_label",
                 textColor=DEWR_NAVY,
             ))
             _, label_h = p.wrap(first_w - pad - 4, 22)
@@ -655,6 +726,7 @@ class EvidenceMatrixPanel(Flowable):
                 )
                 c.setFillColor(DEWR_DARK_GREEN if highlighted else DEWR_NAVY)
                 c.drawCentredString(first_w + i * col_w + col_w / 2, y - 4, value)
+        c.restoreState()
 
 
 class MarginalValuePanel(Flowable):
@@ -670,6 +742,7 @@ class MarginalValuePanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -720,6 +793,7 @@ class MarginalValuePanel(Flowable):
         c.setFillColor(DEWR_DARK_GREY)
         c.drawCentredString(chat_x, h / 2 - 56, "ChatGPT")
         c.drawCentredString(m365_x, h / 2 - 56, "Claude")
+        c.restoreState()
 
 
 class TwoEvidenceCardsPanel(Flowable):
@@ -736,25 +810,23 @@ class TwoEvidenceCardsPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         gap = PANEL.gutter
         card_count = len(self.cards)
         card_w = (w - gap * (card_count - 1)) / card_count
 
-        label_style = ParagraphStyle(
+        label_style = visual_style(
             "evidence_card_label",
-            fontName=FONT_REGULAR,
-            fontSize=VISUAL_TEXT.card_body,
-            leading=VISUAL_TEXT.card_body_leading,
+            "card_body",
             textColor=DEWR_DARK_GREY,
             alignment=TA_CENTER,
         )
-        vs_style = ParagraphStyle(
+        vs_style = visual_style(
             "evidence_card_vs",
+            "card_body",
             fontName=FONT_BOLD,
-            fontSize=VISUAL_TEXT.card_body,
-            leading=VISUAL_TEXT.card_body_leading,
             textColor=DEWR_DARK_GREY,
             alignment=TA_CENTER,
         )
@@ -781,6 +853,7 @@ class TwoEvidenceCardsPanel(Flowable):
             vs = Paragraph(card["comparison"], vs_style)
             vs.wrap(card_w - 34, 18)
             vs.drawOn(c, x + 17, 9)
+        c.restoreState()
 
 
 class HorizontalEvidenceCallout(Flowable):
@@ -799,6 +872,7 @@ class HorizontalEvidenceCallout(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding + SPACING.xs
@@ -814,16 +888,11 @@ class HorizontalEvidenceCallout(Flowable):
         c.setLineWidth(LINES.regular)
         c.line(value_w + 8, 16, value_w + 8, h - 16)
 
-        text_style = ParagraphStyle(
-            "horizontal_callout_text",
-            fontName=FONT_REGULAR,
-            fontSize=VISUAL_TEXT.horizontal_callout_text,
-            leading=VISUAL_TEXT.horizontal_callout_text_leading,
-            textColor=DEWR_DARK_GREY,
-        )
+        text_style = horizontal_callout_text_style("horizontal_callout_text")
         text = Paragraph(f"{self.text} <b>{self.comparison}</b>", text_style)
-        text_w, text_h = text.wrap(w - value_w - pad * 2, 34)
+        _, text_h = text.wrap(w - value_w - pad * 2, 34)
         text.drawOn(c, value_w + pad, (h - text_h) / 2)
+        c.restoreState()
 
 
 class PublicAIUsefulnessVisual(Flowable):
@@ -843,22 +912,20 @@ class PublicAIUsefulnessVisual(Flowable):
 
     def _para(self, text, x, y_top, width, size=7, leading=None,
               font=FONT_REGULAR, color=DEWR_DARK_GREY, bold=False):
-        style = ParagraphStyle(
+        role = "card_title" if bold else "card_body"
+        style = visual_style(
             "tmp",
+            role,
             fontName=FONT_BOLD if bold else font,
             fontSize=size,
             leading=leading or size + 2,
             textColor=color,
-            alignment=TA_LEFT,
-            spaceAfter=0,
-            spaceBefore=0,
         )
-        p = Paragraph(text, style)
-        _, h = p.wrap(width, 1000)
-        p.drawOn(self.canv, x, y_top - h)
+        draw_wrapped_text(self.canv, text, style, x, y_top, width, 1000)
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self.box_height
 
@@ -896,9 +963,9 @@ class PublicAIUsefulnessVisual(Flowable):
 
             c.setFillColor(DEWR_DARK_GREY)
             c.setFont(FONT_BOLD, VISUAL_TEXT.stat_label)
-            title_para = Paragraph(title, ParagraphStyle(
+            title_para = Paragraph(title, visual_style(
                 "usefulness_group_title",
-                fontName=FONT_BOLD,
+                "card_title",
                 fontSize=VISUAL_TEXT.usefulness_title,
                 leading=VISUAL_TEXT.usefulness_title_leading,
                 textColor=DEWR_DARK_GREY,
@@ -934,6 +1001,7 @@ class PublicAIUsefulnessVisual(Flowable):
                 ("Public AI", 78.6, "78.6% (77.8%)", comparison_grey),
             ],
         )
+        c.restoreState()
 
 
 class PriorExperienceComparisonPanel(Flowable):
@@ -949,6 +1017,7 @@ class PriorExperienceComparisonPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -968,11 +1037,9 @@ class PriorExperienceComparisonPanel(Flowable):
             ("Some prior experience", "73%", "reported at some or significant added value over Copilot", DEWR_DARK_GREY),
             ("No or basic experience", "67%", "reported at some or significant added value over Copilot", DEWR_DARK_GREY),
         ]
-        label_style = ParagraphStyle(
+        label_style = visual_style(
             "prior_experience_comparison_label",
-            fontName=FONT_REGULAR,
-            fontSize=VISUAL_TEXT.kpi_caption,
-            leading=VISUAL_TEXT.kpi_caption_leading,
+            "kpi_caption",
             alignment=TA_CENTER,
             textColor=DEWR_DARK_GREY,
         )
@@ -988,6 +1055,7 @@ class PriorExperienceComparisonPanel(Flowable):
             p = Paragraph(label, label_style)
             _, label_h = p.wrap(col_w - 24, 22)
             p.drawOn(c, x + 12, 27 - label_h / 2)
+        c.restoreState()
 
 
 class HorizontalBarPanel(Flowable):
@@ -1009,6 +1077,7 @@ class HorizontalBarPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -1031,11 +1100,9 @@ class HorizontalBarPanel(Flowable):
             y = h - 55 - i * self.row_h
             c.setFillColor(DEWR_NAVY)
             c.setFont(FONT_REGULAR, VISUAL_TEXT.chart_label)
-            p = Paragraph(label, ParagraphStyle(
+            p = Paragraph(label, visual_style(
                 "bar_label",
-                fontName=FONT_REGULAR,
-                fontSize=VISUAL_TEXT.chart_label,
-                leading=VISUAL_TEXT.chart_label_leading,
+                "chart_label",
                 textColor=DEWR_NAVY,
             ))
             p.wrap(label_w - 8, 16)
@@ -1048,6 +1115,7 @@ class HorizontalBarPanel(Flowable):
             c.setFillColor(DEWR_NAVY)
             c.setFont(FONT_BOLD, VISUAL_TEXT.chart_value_label)
             c.drawRightString(w - pad, y - 1, f"{value:g}{self.value_suffix}")
+        c.restoreState()
 
 
 class ComfortDataHandlingPanel(Flowable):
@@ -1067,6 +1135,7 @@ class ComfortDataHandlingPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -1119,6 +1188,7 @@ class ComfortDataHandlingPanel(Flowable):
                 c.drawRightString(bar_x - 6, bar_y - 1, sublabel)
                 c.setFont(FONT_BOLD, VISUAL_TEXT.chart_value_label)
                 c.drawString(bar_x + bar_w + 8, bar_y - 1, f"{value:.1f}%")
+        c.restoreState()
 
 
 class PublicToolTaskProfilePanel(Flowable):
@@ -1150,6 +1220,7 @@ class PublicToolTaskProfilePanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding_large
@@ -1195,15 +1266,14 @@ class PublicToolTaskProfilePanel(Flowable):
             c.setLineWidth(LINES.hairline)
             c.line(x, tick_y - 4, x, bottom_y)
 
-        label_style = ParagraphStyle(
+        label_style = visual_style(
             "public_tool_task_label",
-            fontName=FONT_REGULAR,
-            fontSize=VISUAL_TEXT.chart_label,
-            leading=VISUAL_TEXT.chart_label_leading,
+            "chart_label",
             textColor=DEWR_NAVY,
         )
-        label_bold_style = ParagraphStyle(
+        label_bold_style = visual_style(
             "public_tool_task_label_bold",
+            "chart_label",
             parent=label_style,
             fontName=FONT_BOLD,
         )
@@ -1247,6 +1317,7 @@ class PublicToolTaskProfilePanel(Flowable):
                         c.drawRightString(x - 5, y - 2, label_text)
                     else:
                         c.drawString(label_x, y - 2, label_text)
+        c.restoreState()
 
 
 class AllToolTaskProfilePanel(Flowable):
@@ -1280,6 +1351,7 @@ class AllToolTaskProfilePanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding_large
@@ -1325,15 +1397,14 @@ class AllToolTaskProfilePanel(Flowable):
             c.setLineWidth(LINES.hairline)
             c.line(x, tick_y - 4, x, bottom_y)
 
-        label_style = ParagraphStyle(
+        label_style = visual_style(
             "all_tool_task_label",
-            fontName=FONT_REGULAR,
-            fontSize=VISUAL_TEXT.chart_label,
-            leading=VISUAL_TEXT.chart_label_leading,
+            "chart_label",
             textColor=DEWR_NAVY,
         )
-        label_bold_style = ParagraphStyle(
+        label_bold_style = visual_style(
             "all_tool_task_label_bold",
+            "chart_label",
             parent=label_style,
             fontName=FONT_BOLD,
         )
@@ -1376,6 +1447,7 @@ class AllToolTaskProfilePanel(Flowable):
                         c.drawRightString(x - 5, y - 2, label_text)
                     else:
                         c.drawString(label_x, y - 2, label_text)
+        c.restoreState()
 
 
 class SafeguardPrioritiesPanel(Flowable):
@@ -1396,6 +1468,7 @@ class SafeguardPrioritiesPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -1416,24 +1489,21 @@ class SafeguardPrioritiesPanel(Flowable):
                 c.setStrokeColor(DEWR_LIGHT_GREY)
                 c.line(x, 18, x, h - 46)
 
-            title_p = Paragraph(title, ParagraphStyle(
+            title_p = Paragraph(title, visual_style(
                 "safeguard_title",
-                fontName=FONT_BOLD,
-                fontSize=VISUAL_TEXT.safeguard_title,
-                leading=VISUAL_TEXT.safeguard_title_leading,
+                "safeguard_title",
                 textColor=DEWR_DARK_GREY,
             ))
             title_p.wrap(col_w - 22, 28)
             title_p.drawOn(c, x + 10, h - 72)
-            p = Paragraph(text, ParagraphStyle(
+            p = Paragraph(text, visual_style(
                 "safeguard_text",
-                fontName=FONT_REGULAR,
-                fontSize=VISUAL_TEXT.safeguard_body,
-                leading=VISUAL_TEXT.safeguard_body_leading,
+                "safeguard_body",
                 textColor=DEWR_DARK_GREY,
             ))
             p.wrap(col_w - 22, 42)
             p.drawOn(c, x + 10, h - 116)
+        c.restoreState()
 
 
 class UncertaintyAreasPanel(Flowable):
@@ -1457,6 +1527,7 @@ class UncertaintyAreasPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding_medium
@@ -1480,25 +1551,22 @@ class UncertaintyAreasPanel(Flowable):
                 c.setStrokeColor(DEWR_LIGHT_GREY)
                 c.line(x, bottom_y, x, h - 48)
 
-            title_p = Paragraph(title, ParagraphStyle(
+            title_p = Paragraph(title, visual_style(
                 "uncertainty_title",
-                fontName=FONT_BOLD,
-                fontSize=VISUAL_TEXT.theme_title,
-                leading=VISUAL_TEXT.theme_title_leading,
+                "theme_title",
                 textColor=DEWR_DARK_GREY,
             ))
             title_w = col_w - 30
             title_h = title_p.wrap(title_w, 32)[1]
             title_p.drawOn(c, x + 10, title_top - title_h)
-            p = Paragraph(text, ParagraphStyle(
+            p = Paragraph(text, visual_style(
                 "uncertainty_text",
-                fontName=FONT_REGULAR,
-                fontSize=VISUAL_TEXT.theme_body,
-                leading=VISUAL_TEXT.theme_body_leading,
+                "theme_body",
                 textColor=DEWR_DARK_GREY,
             ))
             _, text_h = p.wrap(title_w, 54)
             p.drawOn(c, x + 10, body_top - text_h)
+        c.restoreState()
 
 
 class SafeguardModelPanel(Flowable):
@@ -1520,6 +1588,7 @@ class SafeguardModelPanel(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -1543,15 +1612,14 @@ class SafeguardModelPanel(Flowable):
             c.setFillColor(DEWR_DARK_GREEN if i < 2 else DEWR_DARK_GREY)
             c.setFont(FONT_BOLD, VISUAL_TEXT.callout_text)
             c.drawString(x + 9, h - 60, title)
-            p = Paragraph(text, ParagraphStyle(
+            p = Paragraph(text, visual_style(
                 "safeguard_model_text",
-                fontName=FONT_REGULAR,
-                fontSize=VISUAL_TEXT.model_body,
-                leading=VISUAL_TEXT.model_body_leading,
+                "model_body",
                 textColor=DEWR_DARK_GREY,
             ))
             p.wrap(col_w - 20, 42)
             p.drawOn(c, x + 9, h - 102)
+        c.restoreState()
 
 
 class ConcernClusterMap(Flowable):
@@ -1579,6 +1647,7 @@ class ConcernClusterMap(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding
@@ -1608,15 +1677,15 @@ class ConcernClusterMap(Flowable):
                     c.setFillColor(DEWR_DARK_GREEN if dot_idx < dot_count and cluster_idx == 0 else
                                    DEWR_DARK_GREY if dot_idx < dot_count else BAR_TRACK)
                     c.circle(x + 6 + dot_idx * 10, dot_center_y, CHART_LAYOUT.dot_radius_small, fill=1, stroke=0)
-                p = Paragraph(label, ParagraphStyle(
+                p = Paragraph(label, visual_style(
                     "concern_cluster_label",
-                    fontName=FONT_REGULAR,
-                    fontSize=VISUAL_TEXT.model_body,
+                    "model_body",
                     leading=VISUAL_TEXT.theme_body_leading,
                     textColor=DEWR_NAVY,
                 ))
                 _, label_h = p.wrap(cluster_w - 40, 24)
                 p.drawOn(c, x + 38, dot_center_y - label_h / 2)
+        c.restoreState()
 
 
 class GroupedBarChart(Flowable):
@@ -1660,6 +1729,7 @@ class GroupedBarChart(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
 
@@ -1780,6 +1850,7 @@ class GroupedBarChart(Flowable):
             c.setFillColor(DEWR_GREY)
             c.setFont(FONT_ITALIC, VISUAL_TEXT.note)
             c.drawString(0, 4, self.source_text)
+        c.restoreState()
 
 
 class TaskFootprintExhibit(Flowable):
@@ -1805,6 +1876,7 @@ class TaskFootprintExhibit(Flowable):
 
     def draw(self):
         c = self.canv
+        c.saveState()
         w = self.box_width
         h = self._height
         pad = PANEL.padding_large
@@ -1858,11 +1930,10 @@ class TaskFootprintExhibit(Flowable):
 
         for i, (label, m365, old_m365, chat, old_chat, highlight) in enumerate(self.rows):
             y = top_y - i * row_gap
-            p = Paragraph(label, ParagraphStyle(
+            p = Paragraph(label, visual_style(
                 "full_task_dumbbell_label",
+                "chart_label",
                 fontName=FONT_BOLD if highlight else FONT_REGULAR,
-                fontSize=VISUAL_TEXT.chart_label,
-                leading=VISUAL_TEXT.chart_label_leading,
                 textColor=DEWR_DARK_GREY,
             ))
             p.wrap(label_w - 10, 22)
@@ -1892,6 +1963,7 @@ class TaskFootprintExhibit(Flowable):
                 c.drawRightString(chat_x - 6, y - 3, f"{chat:.1f}%")
                 c.setFillColor(DEWR_DARK_GREEN)
                 c.drawString(m365_x + 6, y - 3, f"{m365:.1f}%")
+        c.restoreState()
 
 
 class KeyFindingBar(Flowable):
@@ -1906,25 +1978,21 @@ class KeyFindingBar(Flowable):
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
-        style = ParagraphStyle('kf_measure', fontName=FONT_BOLD,
-                               fontSize=VISUAL_TEXT.key_finding, leading=VISUAL_TEXT.key_finding_leading,
-                               textColor=DEWR_DARK_GREY)
+        style = key_finding_style("kf_measure")
         p = Paragraph(self.text, style)
         w, h = p.wrap(self.box_width - 24, availHeight)
         self._height = h + 20
         return self.box_width, self._height
 
     def draw(self):
-        self.canv.setFillColor(self.bg_color)
-        self.canv.rect(0, 0, self.box_width, self._height, fill=1, stroke=0)
-        self.canv.setFillColor(self.border_color)
-        self.canv.rect(0, 0, 4, self._height, fill=1, stroke=0)
-        style = ParagraphStyle('kf_draw', fontName=FONT_BOLD,
-                               fontSize=VISUAL_TEXT.key_finding, leading=VISUAL_TEXT.key_finding_leading,
-                               textColor=DEWR_DARK_GREY)
-        p = Paragraph(self.text, style)
-        p.wrap(self.box_width - 24, self._height)
-        p.drawOn(self.canv, 16, 10)
+        c = self.canv
+        c.saveState()
+        c.setFillColor(self.bg_color)
+        c.rect(0, 0, self.box_width, self._height, fill=1, stroke=0)
+        c.setFillColor(self.border_color)
+        c.rect(0, 0, 4, self._height, fill=1, stroke=0)
+        draw_wrapped_text(c, self.text, key_finding_style("kf_draw"), 16, self._height - 10, self.box_width - 24, self._height)
+        c.restoreState()
 
 
 def header_footer(canvas, doc):
@@ -2077,47 +2145,65 @@ def build_report():
         return KeyFindingBar(text, width, border_color=color)
 
     def visual_title(text):
-        return Paragraph(text, chart_title)
+        return Paragraph(text, VISUAL_STYLES["visual_title"])
+
+    figure_counter = {"value": 0}
+
+    figure_label_style = ParagraphStyle(
+        "BainFigureLabel",
+        parent=VISUAL_STYLES["visual_title"],
+        fontName=FONT_REGULAR,
+        fontSize=10,
+        leading=12,
+        textColor=DEWR_DARK_GREY,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+
+    def figure_label(text):
+        figure_counter["value"] += 1
+        number = figure_counter["value"]
+        return Paragraph(
+            f'<font color="#91040D"><b>Figure {number}:</b></font> {text}',
+            figure_label_style,
+        )
 
     def source_note(text):
-        return Paragraph(f"<i>{text}</i>", note_style)
+        return Paragraph(text, note_style)
 
     def access_evidence_table():
-        header_style = ParagraphStyle(
+        header_style = visual_style(
             "AccessEvidenceHeader",
-            fontName=FONT_BOLD,
-            fontSize=VISUAL_TEXT.table_header,
-            leading=VISUAL_TEXT.table_header_leading,
+            "table_header",
             alignment=TA_CENTER,
             textColor=DEWR_DARK_GREY,
         )
-        measure_header_style = ParagraphStyle(
+        measure_header_style = visual_style(
             "AccessEvidenceMeasureHeader",
+            "table_header",
             parent=header_style,
             alignment=TA_LEFT,
         )
-        measure_style = ParagraphStyle(
+        measure_style = visual_style(
             "AccessEvidenceMeasure",
-            fontName=FONT_BOLD,
-            fontSize=VISUAL_TEXT.table_label,
-            leading=VISUAL_TEXT.table_label_leading,
+            "table_label",
             textColor=DEWR_DARK_GREY,
         )
-        value_style_dark = ParagraphStyle(
+        value_style_dark = visual_style(
             "AccessEvidenceValueDark",
-            fontName=FONT_BOLD,
-            fontSize=VISUAL_TEXT.table_value,
-            leading=VISUAL_TEXT.table_value_leading,
+            "table_value",
             alignment=TA_CENTER,
             textColor=DEWR_DARK_GREY,
         )
-        value_style_green = ParagraphStyle(
+        value_style_green = visual_style(
             "AccessEvidenceValueGreen",
+            "table_value",
             parent=value_style_dark,
             textColor=DEWR_DARK_GREEN,
         )
-        value_style_red = ParagraphStyle(
+        value_style_red = visual_style(
             "AccessEvidenceValueRed",
+            "table_value",
             parent=value_style_dark,
             textColor=DEWR_RED,
         )
@@ -2160,29 +2246,32 @@ def build_report():
             colWidths=[first_w, col_w, col_w],
             rowHeights=[TABLE_SPEC.access_header_height] + [TABLE_SPEC.access_row_height] * (len(data) - 1),
         )
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), DEWR_OFF_WHITE),
-            ("LINEBELOW", (0, 0), (-1, 0), LINES.regular, DEWR_SOFT_LINE),
-            ("LINEBELOW", (0, 1), (-1, 1), LINES.regular, DEWR_SOFT_LINE),
-            ("LINEBELOW", (0, 2), (-1, 2), LINES.regular, DEWR_SOFT_LINE),
-            ("LINEBELOW", (0, 3), (-1, 3), LINES.regular, DEWR_SOFT_LINE),
-            ("LINEBELOW", (0, 4), (-1, 4), LINES.regular, DEWR_SOFT_LINE),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (0, 0), (0, 0), "LEFT"),
-            ("ALIGN", (1, 1), (-1, -1), "CENTER"),
-            ("ALIGN", (0, 0), (0, -1), "LEFT"),
-            ("LEFTPADDING", (0, 0), (-1, -1), TABLE_SPEC.cell_padding_x),
-            ("RIGHTPADDING", (0, 0), (-1, -1), TABLE_SPEC.cell_padding_x),
-            ("TOPPADDING", (0, 0), (-1, -1), TABLE_SPEC.cell_padding_y),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), TABLE_SPEC.cell_padding_y),
-        ]))
+        table.setStyle(access_evidence_table_style())
         return table
 
-    def sp(h=SPACING.sm + 2):
+    def sp(h=RHYTHM.paragraph_gap):
         return Spacer(1, h)
 
+    def para_gap():
+        return sp(RHYTHM.paragraph_gap)
+
+    def tight_gap():
+        return sp(RHYTHM.tight_gap)
+
+    def visual_gap():
+        return sp(RHYTHM.visual_gap)
+
+    def note_gap():
+        return sp(RHYTHM.note_gap)
+
+    def after_note_gap():
+        return sp(RHYTHM.after_note_gap)
+
+    def section_gap():
+        return sp(RHYTHM.section_gap)
+
     def visual_spacer():
-        return sp(SPACING.lg)
+        return visual_gap()
 
     # ==============================
     # COVER PAGE
@@ -2193,7 +2282,7 @@ def build_report():
     # EVALUATION FINDINGS
     # ==============================
     story.append(Paragraph("Evaluation findings", evaluation_h1))
-    story.append(sp(10))
+    story.append(after_note_gap())
 
     # Section 1: Copilot
     story.append(Paragraph("1. Copilot usage and productivity", s1_h2))
@@ -2201,7 +2290,7 @@ def build_report():
         "A total of 71 survey respondents indicated that they used Copilot and answered questions "
         "about how they used it, how often, and how much time they believed it saved them.",
         section_intro))
-    story.append(sp(4))
+    story.append(tight_gap())
     story.append(callout(
         "Copilot already delivers material productivity value, but benefits are tiered by "
         "access: integrated M365 Copilot produces stronger time savings, deeper engagement "
@@ -2211,7 +2300,7 @@ def build_report():
         ("1.9x", "M365 Copilot users were 1.9x as likely to rate Copilot very or extremely useful"),
         ("1.5x", "M365 Copilot users were 1.5x as likely to use Copilot weekly or more often"),
     ], primary_count=1))
-    story.append(sp(12))
+    story.append(visual_gap())
 
     # Time savings
     story.append(Paragraph("1.1 M365 Copilot users reported higher time savings", s1_h3))
@@ -2219,7 +2308,9 @@ def build_report():
         "M365 Copilot users reported average time savings of 5.7 hours per week, compared with "
         "2.8 hours per week for Copilot Chat users. This means M365 Copilot users reported "
         "roughly twice the weekly time savings of Copilot Chat users.", s1_body))
-    story.append(visual_spacer())
+    story.append(visual_gap())
+    story.append(figure_label("Average weekly time saved by Copilot access type"))
+    story.append(tight_gap())
     story.append(TimeSavingsPanel(width))
     story.append(sp(6))
     story.append(Paragraph(
@@ -2231,7 +2322,7 @@ def build_report():
         "Note: The DTA reported these as task-level approximations, rather than a single overall "
         "average daily gain; the comparison is best interpreted as directional context rather than "
         "a direct benchmark."))
-    story.append(sp(12))
+    story.append(visual_gap())
 
     # Usefulness and frequency
     story.append(KeepTogether([
@@ -2239,15 +2330,17 @@ def build_report():
         Paragraph(
             "The productivity gap was reinforced by engagement signals. M365 Copilot users were "
             "more likely to rate Copilot as highly useful and to use it more frequently.", s1_body),
-        visual_spacer(),
+        visual_gap(),
+        figure_label("Copilot engagement and value signals by access type"),
+        tight_gap(),
         CopilotEngagementDeltaPanel(width),
     ]))
-    story.append(sp(12))
+    story.append(visual_gap())
 
     # Department usage and value
     story.append(KeepTogether([
         Paragraph("1.3 Copilot Usage and Value Across the Department", s1_h3),
-        sp(2),
+        sp(RHYTHM.heading_gap),
         Paragraph(
             "While M365 Copilot users reported substantially higher time savings, current M365 licence "
             "coverage was limited across the trial workforce. M365 licences covered <b>4.5%</b> of APS "
@@ -2259,8 +2352,10 @@ def build_report():
             "to <b>10.6%</b> in Workplace Relations. This means the strongest reported productivity "
             "gains were concentrated among a relatively small licensed cohort.",
             s1_body),
-        visual_spacer(),
+        visual_gap(),
     ]))
+    story.append(figure_label("M365 Copilot value and licence reach by workforce segment"))
+    story.append(tight_gap())
     story.append(M365ValueAndReachTable(
         width,
         "CLASSIFICATION LEVEL",
@@ -2269,29 +2364,33 @@ def build_report():
             ("APS level", "6.0 hrs", "3.5 hrs", "1.7x", "5%", False),
         ],
     ))
-    story.append(visual_spacer())
-    story.append(M365ValueAndReachTable(
-        width,
-        "ORGANISATIONAL GROUP",
-        [
-            ("Corporate and Enabling", "6.3 hrs", "2.5 hrs", "2.5x", "8%", True),
-            ("Employment and Workforce", "6.3 hrs", "2.9 hrs", "2.2x", "7%", False),
-            ("Skills and Training", "5.4 hrs", "2.9 hrs", "1.9x", "6%", False),
-            ("Workplace Relations", "5.0 hrs", "4.0 hrs", "1.2x", "11%", False),
-        ],
-    ))
-    story.append(sp(4))
+    story.append(visual_gap())
+    story.append(KeepTogether([
+        figure_label("M365 Copilot value and licence reach by organisational group"),
+        tight_gap(),
+        M365ValueAndReachTable(
+            width,
+            "ORGANISATIONAL GROUP",
+            [
+                ("Corporate and Enabling", "6.3 hrs", "2.5 hrs", "2.5x", "8%", True),
+                ("Employment and Workforce", "6.3 hrs", "2.9 hrs", "2.2x", "7%", False),
+                ("Skills and Training", "5.4 hrs", "2.9 hrs", "1.9x", "6%", False),
+                ("Workplace Relations", "5.0 hrs", "4.0 hrs", "1.2x", "11%", False),
+            ],
+        ),
+    ]))
+    story.append(tight_gap())
     story.append(source_note(
         "Note: M365 value is M365 weekly hours saved divided by Copilot Chat weekly hours saved. "
         "Coverage uses current M365 licence counts as a share of all staff in each group. "
         "Classification level and organisational group are separate cuts of the workforce and should not be summed. "
         "Source: Q17 Copilot time-saved responses and current M365 licence counts."))
-    story.append(sp(12))
+    story.append(visual_gap())
 
     # Task types
     story.append(KeepTogether([
         Paragraph("1.4 M365 Copilot users reported a broader task footprint", s1_h3),
-        sp(2),
+        sp(RHYTHM.heading_gap),
         Paragraph(
             "All versions of Copilot were used most often for summarising, editing and revision, "
             "and drafting, but M365 Copilot users reported greater use across more task types on "
@@ -2304,10 +2403,12 @@ def build_report():
             "These tasks are typically more complex than drafting or summarising alone, suggesting "
             "M365 Copilot version may be associated with broader use in higher-value knowledge-work "
             "activities."),
-        visual_spacer(),
+        visual_gap(),
+        figure_label("Task footprint by Copilot access type"),
+        tight_gap(),
         TaskFootprintExhibit(width),
     ]))
-    story.append(sp(14))
+    story.append(section_gap())
 
     # Section 2: Public Gen AI
     story.append(PageBreak())
@@ -2316,7 +2417,7 @@ def build_report():
         "A total of 61 survey respondents indicated that they used one of the Public Generative AI "
         "tools during the trial and answered questions about how they used it, how often, and how "
         "much time they believed it saved them.", section_intro))
-    story.append(sp(4))
+    story.append(tight_gap())
     story.append(callout(
         "Public Gen AI tools created clear value for many trial users, but benefits were uneven: "
         "strongest for experienced users, staff with Copilot Chat, and tasks where "
@@ -2327,7 +2428,7 @@ def build_report():
         ("72%", "Wanted continued access"),
         ("53%", "Used public tools at least weekly"),
     ], primary_count=1))
-    story.append(sp(12))
+    story.append(visual_gap())
 
     # 2.1 Tool comparison
     story.append(Paragraph("2.1 ChatGPT had the widest reach; Claude had the strongest value signals", h3))
@@ -2336,7 +2437,9 @@ def build_report():
         "high-usefulness signal: 46.3% of Claude users rated it very or extremely useful, "
         "compared with 29.7% for Gemini and 28.6% for ChatGPT. This suggests the public-tool choice was not simply about "
         "uptake; different tools played different roles.", body))
-    story.append(visual_spacer())
+    story.append(visual_gap())
+    story.append(figure_label("Public AI tool reach and value signals"))
+    story.append(tight_gap())
     story.append(EvidenceMatrixPanel(
         width,
         "MEASURE",
@@ -2349,7 +2452,7 @@ def build_report():
         ],
         first_col_ratio=0.43,
     ))
-    story.append(sp(8))
+    story.append(para_gap())
 
     # 2.2 Task types
     story.append(Paragraph("2.2 Public tools were mainly used for broad knowledge work", h3))
@@ -2365,12 +2468,14 @@ def build_report():
         "for Gemini and 10.7% for ChatGPT. Gemini was strongest for editing and revision, at "
         "56.8%, while ChatGPT showed a relatively balanced profile across summarising, drafting, "
         "editing and research.", body))
-    story.append(visual_spacer())
+    story.append(visual_gap())
+    story.append(figure_label("Public tool task profile by tool"))
+    story.append(tight_gap())
     story.append(PublicToolTaskProfilePanel(width))
     story.append(source_note(
         "Note: Percentages are based on users of each respective tool: ChatGPT n=56; Gemini n=37; Claude n=41. "
         "Labelled values indicate the highest tool-specific share for each task. Source: DEWR Public Generative AI Trial survey, 2026."))
-    story.append(sp(10))
+    story.append(after_note_gap())
 
     # 2.3 Productivity from Public Gen AI
     story.append(Paragraph("2.3 Productivity from Public Gen AI", h3))
@@ -2380,13 +2485,17 @@ def build_report():
         "compared with <b>69.7%</b> who rated Copilot at least moderately useful. Among M365 Copilot users, the pattern was "
         "reversed: <b>92.9%</b> rated Copilot at least moderately useful, compared with <b>78.6%</b> who rated public AI "
         "tools useful.", body))
-    story.append(visual_spacer())
-    story.append(access_evidence_table())
-    story.append(source_note(
-        "Note: Results are based on respondents with known Copilot version who used at least one public AI tool and "
-        "provided valid responses for the relevant measures. Copilot Chat/basic n=33 and M365 Copilot n=28 unless noted; "
-        "the added-value row uses Copilot Chat/basic n=32. Useful means moderately, very or extremely useful."))
-    story.append(sp(8))
+    story.append(visual_gap())
+    story.append(KeepTogether([
+        figure_label("Copilot access value comparison"),
+        tight_gap(),
+        access_evidence_table(),
+        source_note(
+            "Note: Results are based on respondents with known Copilot version who used at least one public AI tool and "
+            "provided valid responses for the relevant measures. Copilot Chat/basic n=33 and M365 Copilot n=28 unless noted; "
+            "the added-value row uses Copilot Chat/basic n=32. Useful means moderately, very or extremely useful."),
+    ]))
+    story.append(para_gap())
     story.append(Paragraph(
         "Weekly use points to the same relative pattern. Public AI weekly use was similar across access "
         "groups (<b>54.5%</b> for Copilot Chat/basic users and <b>50.0%</b> for M365 Copilot users). However, "
@@ -2396,18 +2505,17 @@ def build_report():
         "<b>75.0%</b> of Copilot Chat/basic users and "
         "<b>82.1%</b> of M365 Copilot users.", body))
 
-    story.append(sp(8))
-    story.append(Paragraph("Public Gen AI usage by cohort", h2))
-    story.append(sp(4))
-
     # 2.4 Prior experience variation
+    story.append(CondPageBreak(155))
     story.append(KeepTogether([
         Paragraph("2.4 Prior Gen AI experience was associated with stronger reported value", h3),
         Paragraph(
             "Prior Gen AI experience was also associated with stronger reported outcomes. Experienced "
             "and highly experienced respondents were more likely to report significant added value from "
             "public tools than respondents with lower levels of prior Gen AI experience.", body),
-        visual_spacer(),
+        visual_gap(),
+        figure_label("Public tool value by prior Gen AI experience"),
+        tight_gap(),
         PriorExperienceComparisonPanel(width),
         source_note("Note: Results should be read directionally given the smaller no/basic segment."),
         sp(3),
@@ -2415,7 +2523,9 @@ def build_report():
             "Higher-experience users also reported deeper usefulness: <b>73%</b> rated at least one public tool "
             "very or extremely useful, compared with <b>46%</b> some prior Gen AI experience and "
             "<b>39%</b> no/basic prior Gen AI experience.", body),
-        visual_spacer(),
+        visual_gap(),
+        figure_label("Continued access preference by prior Gen AI experience"),
+        tight_gap(),
         EvidenceMatrixPanel(
             width,
             "MEASURE",
@@ -2437,21 +2547,23 @@ def build_report():
     ]))
 
     # 2.5 Other segment variation
+    story.append(CondPageBreak(265))
     story.append(Paragraph("2.5 Reported value varied by classification and organisational group", h3))
-    story.append(sp(4))
+    story.append(tight_gap())
     story.append(Paragraph("Classification level", mini_heading))
-    story.append(sp(4))
+    story.append(tight_gap())
     story.append(Paragraph(
         "Classification-level patterns differed by measure. EL level users were slightly more likely to use "
         "public tools weekly or more (<b>53.6% vs 51.5%</b>), while APS level users were more likely to rate "
         "both public tools (<b>87.9% vs 71.4%</b>) and Copilot (<b>84.8% vs 75.0%</b>) as at least moderately useful.", body))
-    story.append(sp(5))
-    story.append(key_finding(
-        "EL level users were more likely to report that public tools added value beyond Copilot "
-        "(<b>78.6%</b> vs <b>66.7%</b> for APS level users)."))
-    story.append(visual_spacer())
-    story.append(EvidenceMatrixPanel(
+    story.append(visual_gap())
+    story.append(figure_label("Reported value by classification level"))
+    story.append(tight_gap())
+    story.append(build_key_finding_matrix_exhibit(
         width,
+        REPORT_FONTS,
+        "EL level users were more likely to report that public tools added value beyond Copilot "
+        "(<b>78.6%</b> vs <b>66.7%</b> for APS level users).",
         "MEASURE",
         ["APS level", "EL level"],
         [
@@ -2464,15 +2576,17 @@ def build_report():
         ],
         first_col_ratio=0.56,
     ))
-    story.append(sp(8))
+    story.append(para_gap())
     story.append(Paragraph("Organisational group", mini_heading))
-    story.append(sp(4))
+    story.append(tight_gap())
     story.append(Paragraph(
         "Reported value also varied across groups. Workplace Relations recorded the strongest added-value "
         "result (<b>85.7%</b>), while Employment and Workforce and Corporate and Enabling recorded high "
         "usefulness results (<b>84.2%</b> and <b>83.3%</b> respectively). Skills and Training recorded "
         "comparatively weaker results across both measures.", body))
-    story.append(visual_spacer())
+    story.append(visual_gap())
+    story.append(figure_label("Public tool value by organisational group"))
+    story.append(tight_gap())
     story.append(EvidenceMatrixPanel(
         width,
         "GROUP",
@@ -2487,12 +2601,12 @@ def build_report():
     ))
     story.append(source_note(
         "Note: Jobs and Skills Australia was excluded because of low sample size (n=3)."))
-    story.append(sp(4))
+    story.append(tight_gap())
 
     # 2.6 Barriers
     story.append(PageBreak())
     story.append(Paragraph("2.6 Limitations were common, led by lack of integration with internal systems and request limits", h3))
-    story.append(sp(4))
+    story.append(tight_gap())
     story.append(HorizontalEvidenceCallout(
         width,
         "Limitations reported",
@@ -2502,7 +2616,7 @@ def build_report():
     ))
     story.append(sp(11))
     story.append(Paragraph("Limitations clustered around three signals:", body_bold))
-    story.append(sp(2))
+    story.append(sp(RHYTHM.heading_gap))
     story.append(limitation_bullet(
         "<b>Integration was the universal workflow barrier:</b> <b>49%</b> of survey respondents reported "
         "lack of integration, with tool-level rates around half of users across ChatGPT, Gemini and Claude."))
@@ -2512,7 +2626,9 @@ def build_report():
     story.append(limitation_bullet(
         "<b>Limits were most acute for experienced users:</b> <b>59.1%</b> of experienced/highly "
         "experienced users reported request limits, compared with <b>30.8%</b> of both lower-experience groups."))
-    story.append(visual_spacer())
+    story.append(visual_gap())
+    story.append(figure_label("Limitations reported by respondents"))
+    story.append(tight_gap())
     story.append(HorizontalBarPanel(width, "LIMITATIONS REPORTED BY RESPONDENTS", [
         ("Lack of integration with internal systems or Microsoft 365 products", 49),
         ("Free prompt/request limits", 41),
@@ -2521,7 +2637,7 @@ def build_report():
         ("Slow responses", 28),
         ("Fabricated content or hallucinations", 15),
     ], max_value=100, primary_count=2, row_h=CHART_LAYOUT.row_height_dense))
-    story.append(sp(8))
+    story.append(para_gap())
     story.append(Paragraph(
         "The limitation profile also varied by tool. Lack of integration was common across all three "
         "tools, affecting <b>48%</b> of ChatGPT users, <b>49%</b> of Gemini users and <b>51%</b> of "
@@ -2537,7 +2653,7 @@ def build_report():
         "All survey respondents were asked about concerns, comfort using public Gen AI tools, "
         "data-handling behaviour and the effectiveness of trial safety communications.",
         section_intro))
-    story.append(sp(4))
+    story.append(tight_gap())
     story.append(callout(
         "Most survey respondents were comfortable and reported security concerns were rare. Survey "
         "results suggest safety communications and splash screens supported cautious use, while "
@@ -2549,7 +2665,7 @@ def build_report():
         ("12%", "Ethical concerns encountered"),
         ("3%", "Reported specific security concerns"),
     ], primary_count=1))
-    story.append(sp(12))
+    story.append(visual_gap())
 
     story.append(Paragraph("3.1 Most respondents were comfortable; security concerns were present but rare", h3))
     story.append(Paragraph(
@@ -2563,15 +2679,19 @@ def build_report():
         "screens effective: <b>82.5%</b> of this group were comfortable or very comfortable using "
         "public tools, compared with <b>60.0%</b> among respondents who did not rate both channels "
         "effective.", body))
-    story.append(sp(8))
+    story.append(para_gap())
 
     story.append(Paragraph("3.2 Open-text responses showed uncertainty at practical boundaries", h3))
     story.append(Paragraph(
         "Open-text responses still showed uncertainty at practical boundaries, particularly where "
         "information was technically allowed but still sensitive, commercially confidential, difficult "
         "to classify, or required output validation.", body))
-    story.append(visual_spacer())
-    story.append(UncertaintyAreasPanel(width))
+    story.append(visual_gap())
+    story.append(KeepTogether([
+        figure_label("Uncertainty areas raised in open-text responses"),
+        tight_gap(),
+        UncertaintyAreasPanel(width),
+    ]))
     story.append(PageBreak())
 
     story.append(Paragraph("3.3 Respondents were more likely to copy/paste information than upload documents", h3))
@@ -2579,7 +2699,9 @@ def build_report():
         "Reported data-handling behaviour varied by activity. Copying and pasting information "
         "into public tools was more common than uploading documents. Among survey respondents, "
         "<b>70.5%</b> copied and pasted information, while <b>42.6%</b> uploaded documents.", body))
-    story.append(visual_spacer())
+    story.append(visual_gap())
+    story.append(figure_label("Reported public-tool data handling behaviour"))
+    story.append(tight_gap())
     story.append(HorizontalBarPanel(width, "MEASURE", [
         ("Copied and pasted information", 70.5),
         ("Uploaded documents", 42.6),
@@ -2592,17 +2714,20 @@ def build_report():
         "groups (<b>71.7%</b> vs <b>66.7%</b>). This suggests lower comfort may have shifted users "
         "toward more cautious forms of information sharing, such as copy/paste, rather than full "
         "document upload.", body))
-    story.append(visual_spacer())
+    story.append(visual_gap())
+    story.append(figure_label("Data handling behaviour by comfort level"))
+    story.append(tight_gap())
     story.append(ComfortDataHandlingPanel(width))
-    story.append(sp(8))
+    story.append(para_gap())
 
+    story.append(CondPageBreak(135))
     story.append(Paragraph("3.4 Safety communications were rated effective by most survey respondents", h3))
     story.append(ValueSignalsPanel(width, [
         ("74%", "Introductory email moderately or highly effective"),
         ("72%", "Splash screens moderately or highly effective"),
         ("67%", "Rated both email and splash screens effective"),
     ], primary_count=0))
-    story.append(sp(10))
+    story.append(after_note_gap())
     story.append(Paragraph(
         "Most respondents rated the safety communications positively: the introductory email was rated "
         "moderately or highly effective by <b>74%</b> of respondents, while splash screens were rated "
@@ -2612,7 +2737,7 @@ def build_report():
         "Upload blockers were less visible in the survey results: <b>16.7%</b> of respondents "
         "noticed or rated upload blockers as effective, and no respondent rated upload blockers "
         "ineffective.", body))
-    story.append(sp(8))
+    story.append(para_gap())
 
     # Appendix
     story.append(PageBreak())
@@ -2622,9 +2747,11 @@ def build_report():
         "This option extends the section 2 task-profile visual by adding M365 Copilot and "
         "Copilot Chat to the public-tool comparison. Values are shown on a common percentage "
         "scale to compare task footprints across all five tools.", body))
-    story.append(visual_spacer())
+    story.append(visual_gap())
+    story.append(figure_label("All-tool task footprint across public tools and Copilot"))
+    story.append(tight_gap())
     story.append(AllToolTaskProfilePanel(width))
-    story.append(sp(4))
+    story.append(tight_gap())
     story.append(source_note(
         "Note: Public-tool percentages are based on users of each respective tool: ChatGPT n=56; "
         "Gemini n=37; Claude n=41. Copilot percentages are based on respondents with known "

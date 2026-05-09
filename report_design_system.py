@@ -4,11 +4,12 @@ from dataclasses import dataclass
 import os
 
 from reportlab.lib.colors import HexColor
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import KeepTogether, Paragraph, Table, TableStyle
 
 
 # Official OCE/DEWR palette.
@@ -78,6 +79,25 @@ class Spacing:
 
 
 @dataclass(frozen=True)
+class StoryRhythmSpec:
+    heading_gap: float = 2
+    paragraph_gap: float = 8
+    tight_gap: float = 4
+    visual_gap: float = 30
+    note_gap: float = 5
+    after_note_gap: float = 10
+    section_gap: float = 14
+
+
+class FlowableSpacingMixin:
+    def getSpaceBefore(self):
+        return getattr(self, "space_before", 0)
+
+    def getSpaceAfter(self):
+        return getattr(self, "space_after", 0)
+
+
+@dataclass(frozen=True)
 class TypeScale:
     title: float = 26
     subtitle: float = 14
@@ -86,7 +106,7 @@ class TypeScale:
     h3: float = 11.5
     h4: float = 10
     body: float = 10
-    note: float = 8.5
+    note: float = 7.0
     chart_title: float = 10.5
 
 
@@ -124,6 +144,8 @@ class ChartSpec:
 
 @dataclass(frozen=True)
 class VisualTextSpec:
+    visual_title: float = 10.5
+    visual_title_leading: float = 13.0
     panel_header: float = 7.5
     panel_header_small: float = 7.2
     card_title: float = 8.5
@@ -151,17 +173,23 @@ class VisualTextSpec:
     chart_legend_compact: float = 6.6
     chart_value_label: float = 7.0
     chart_value_label_compact: float = 6.8
+    stacked_row_label: float = 7.8
+    stacked_row_label_leading: float = 8.8
+    stacked_segment_label: float = 6.4
+    stacked_callout_value: float = 17.0
+    stacked_callout_label: float = 7.4
+    stacked_callout_label_leading: float = 8.6
     table_header: float = 6.5
     table_header_leading: float = 7.5
     table_label: float = 7.6
     table_label_leading: float = 8.6
-    table_value: float = 11.0
-    table_value_leading: float = 12.0
+    table_value: float = 9.0
+    table_value_leading: float = 10.5
     value_reach_section: float = 8.0
-    value_reach_column_header: float = 6.6
+    value_reach_column_header: float = 6.5
     value_reach_label: float = 7.6
     value_reach_label_leading: float = 8.6
-    value_reach_value: float = 11.0
+    value_reach_value: float = 9.0
     kpi_value: float = 24.0
     kpi_value_medium: float = 22.0
     kpi_value_compact: float = 17.0
@@ -181,7 +209,7 @@ class VisualTextSpec:
     time_savings_context: float = 7.5
     cover_fallback_agency: float = 11.0
     cover_fallback_department: float = 10.0
-    note: float = 8.0
+    note: float = 8.5
 
 
 @dataclass(frozen=True)
@@ -238,7 +266,7 @@ class ChartLayoutSpec:
 @dataclass(frozen=True)
 class TableSpec:
     matrix_row_height: float = 26.0
-    matrix_header_height: float = 44.0
+    matrix_header_height: float = 50.0
     matrix_header_height_single: float = 50.0
     access_header_height: float = 28.0
     access_row_height: float = 31.0
@@ -352,6 +380,281 @@ def _font(fonts, attr):
     if isinstance(fonts, dict):
         return fonts.get(attr, getattr(FontSpec(), attr))
     return getattr(fonts, attr)
+
+
+_VISUAL_STYLE_ROLES = {
+    "visual_title": ("visual_title", "visual_title_leading", TEXT),
+    "panel_header": ("panel_header", None, TEXT),
+    "panel_header_small": ("panel_header_small", None, TEXT),
+    "card_title": ("card_title", None, TEXT),
+    "card_body": ("card_body", "card_body_leading", TEXT),
+    "kpi_caption": ("kpi_caption", "kpi_caption_leading", TEXT_MUTED),
+    "chart_label": ("chart_label", "chart_label_leading", TEXT_MUTED),
+    "table_header": ("table_header", "table_header_leading", TEXT),
+    "table_label": ("table_label", "table_label_leading", TEXT),
+    "table_value": ("table_value", "table_value_leading", TEXT),
+    "stacked_row_label": ("stacked_row_label", "stacked_row_label_leading", TEXT),
+    "theme_title": ("theme_title", "theme_title_leading", TEXT),
+    "theme_body": ("theme_body", "theme_body_leading", TEXT),
+    "safeguard_title": ("safeguard_title", "safeguard_title_leading", TEXT),
+    "safeguard_body": ("safeguard_body", "safeguard_body_leading", TEXT),
+    "model_body": ("model_body", "model_body_leading", TEXT),
+    "note": ("note", None, TEXT_SECONDARY),
+}
+
+
+def visual_paragraph_style(
+    name,
+    fonts,
+    role,
+    alignment=TA_LEFT,
+    bold=False,
+    italic=False,
+    text_color=None,
+):
+    """Build a reusable ParagraphStyle for visual Flowables."""
+    if role not in _VISUAL_STYLE_ROLES:
+        raise ValueError(f"Unknown visual paragraph role: {role}")
+
+    size_attr, leading_attr, default_color = _VISUAL_STYLE_ROLES[role]
+    visual_text = VisualTextSpec()
+    font_attr = "regular"
+    if bold and italic:
+        font_attr = "bold_italic"
+    elif bold:
+        font_attr = "bold"
+    elif italic:
+        font_attr = "italic"
+
+    font_size = getattr(visual_text, size_attr)
+    leading = getattr(visual_text, leading_attr) if leading_attr else font_size + 2
+
+    return ParagraphStyle(
+        name,
+        fontName=_font(fonts, font_attr),
+        fontSize=font_size,
+        leading=leading,
+        alignment=alignment,
+        textColor=default_color if text_color is None else text_color,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+
+
+def make_visual_styles(fonts):
+    """Return reusable ParagraphStyles for custom visual components."""
+    return {
+        "panel_header": visual_paragraph_style(
+            "VisualPanelHeader", fonts, "panel_header", bold=True
+        ),
+        "panel_header_small": visual_paragraph_style(
+            "VisualPanelHeaderSmall", fonts, "panel_header_small", bold=True
+        ),
+        "visual_title": visual_paragraph_style(
+            "VisualTitle", fonts, "visual_title", bold=True
+        ),
+        "card_title": visual_paragraph_style(
+            "VisualCardTitle", fonts, "card_title", bold=True
+        ),
+        "card_body": visual_paragraph_style("VisualCardBody", fonts, "card_body"),
+        "kpi_caption": visual_paragraph_style("VisualKpiCaption", fonts, "kpi_caption"),
+        "chart_label": visual_paragraph_style("VisualChartLabel", fonts, "chart_label"),
+        "table_header": visual_paragraph_style(
+            "VisualTableHeader", fonts, "table_header", bold=True
+        ),
+        "table_label": visual_paragraph_style("VisualTableLabel", fonts, "table_label"),
+        "table_value": visual_paragraph_style(
+            "VisualTableValue", fonts, "table_value", bold=True
+        ),
+        "stacked_row_label": visual_paragraph_style(
+            "VisualStackedRowLabel", fonts, "stacked_row_label"
+        ),
+        "theme_title": visual_paragraph_style(
+            "VisualThemeTitle", fonts, "theme_title", bold=True
+        ),
+        "theme_body": visual_paragraph_style("VisualThemeBody", fonts, "theme_body"),
+        "safeguard_title": visual_paragraph_style(
+            "VisualSafeguardTitle", fonts, "safeguard_title", bold=True
+        ),
+        "safeguard_body": visual_paragraph_style(
+            "VisualSafeguardBody", fonts, "safeguard_body"
+        ),
+        "model_body": visual_paragraph_style("VisualModelBody", fonts, "model_body"),
+        "note": visual_paragraph_style("VisualNote", fonts, "note"),
+    }
+
+
+def draw_wrapped_text(canvas, text, style, x, y_top, width, max_height):
+    """Draw text with ReportLab Paragraph wrapping from a top-left anchor."""
+    paragraph = Paragraph("" if text is None else text, style)
+    _, height = paragraph.wrap(width, max_height)
+    paragraph.drawOn(canvas, x, y_top - height)
+    return height
+
+
+def evidence_table_style():
+    table = TableSpec()
+    lines = Lines()
+    return TableStyle(
+        [
+            ("BACKGROUND", (0, 0), (-1, -1), DEWR_OFF_WHITE),
+            ("LINEBELOW", (0, 0), (-1, -1), lines.regular, DEWR_SOFT_LINE),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ("LEFTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
+            ("RIGHTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
+            ("TOPPADDING", (0, 0), (-1, -1), table.cell_padding_y),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), table.cell_padding_y),
+        ]
+    )
+
+
+def access_evidence_table_style():
+    table = TableSpec()
+    lines = Lines()
+    return TableStyle(
+        [
+            ("BACKGROUND", (0, 0), (-1, -1), DEWR_OFF_WHITE),
+            ("LINEBELOW", (0, 0), (-1, 0), lines.regular, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 1), (-1, 1), lines.regular, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 2), (-1, 2), lines.regular, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 3), (-1, 3), lines.regular, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 4), (-1, 4), lines.regular, DEWR_SOFT_LINE),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (0, 0), "LEFT"),
+            ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("LEFTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
+            ("RIGHTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
+            ("TOPPADDING", (0, 0), (-1, -1), table.cell_padding_y),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), table.cell_padding_y),
+        ]
+    )
+
+
+def build_key_finding_matrix_exhibit(
+    width,
+    fonts,
+    key_finding_text,
+    title,
+    columns,
+    rows,
+    first_col_ratio=0.42,
+):
+    """Build an integrated key-finding strip plus evidence matrix."""
+    table_spec = TableSpec()
+    lines = Lines()
+    fonts = fonts or FontSpec()
+
+    first_w = width * first_col_ratio
+    col_w = (width - first_w) / len(columns)
+    col_widths = [first_w] + [col_w] * len(columns)
+
+    key_style = ParagraphStyle(
+        "KeyFindingMatrixCallout",
+        fontName=_font(fonts, "bold"),
+        fontSize=10.5,
+        leading=14,
+        textColor=TEXT,
+        leftIndent=0,
+        rightIndent=0,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    header_style = visual_paragraph_style(
+        "KeyFindingMatrixHeader",
+        fonts,
+        "table_header",
+        alignment=TA_CENTER,
+        bold=True,
+        text_color=TEXT,
+    )
+    measure_header_style = visual_paragraph_style(
+        "KeyFindingMatrixMeasureHeader",
+        fonts,
+        "table_header",
+        bold=True,
+        text_color=TEXT,
+    )
+    section_style = visual_paragraph_style(
+        "KeyFindingMatrixSection",
+        fonts,
+        "table_header",
+        bold=True,
+        text_color=TEXT,
+    )
+    label_style = visual_paragraph_style(
+        "KeyFindingMatrixLabel",
+        fonts,
+        "table_label",
+        text_color=TEXT,
+    )
+    value_style = visual_paragraph_style(
+        "KeyFindingMatrixValue",
+        fonts,
+        "table_value",
+        alignment=TA_CENTER,
+        bold=True,
+        text_color=TEXT,
+    )
+    highlight_style = visual_paragraph_style(
+        "KeyFindingMatrixValueHighlight",
+        fonts,
+        "table_value",
+        alignment=TA_CENTER,
+        bold=True,
+        text_color=DEWR_DARK_GREEN,
+    )
+
+    data = [[Paragraph(key_finding_text, key_style)] + [""] * len(columns)]
+    data.append([Paragraph(title.upper(), measure_header_style)] + [
+        Paragraph(column.upper(), header_style) for column in columns
+    ])
+
+    style_commands = [
+        ("SPAN", (0, 0), (-1, 0)),
+        ("BACKGROUND", (0, 0), (-1, 0), KEY_FINDING_BACKGROUND),
+        ("LINEBEFORE", (0, 0), (0, 0), 4, DEWR_GREEN),
+        ("BACKGROUND", (0, 1), (-1, -1), DEWR_OFF_WHITE),
+        ("LINEBELOW", (0, 1), (-1, 1), lines.fine, DEWR_SOFT_LINE),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), table_spec.cell_padding_x),
+        ("RIGHTPADDING", (0, 0), (-1, -1), table_spec.cell_padding_x),
+        ("TOPPADDING", (0, 0), (-1, -1), table_spec.cell_padding_y),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), table_spec.cell_padding_y),
+        ("TOPPADDING", (0, 0), (-1, 0), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+        ("TOPPADDING", (0, 1), (-1, 1), 12),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 12),
+        ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+    ]
+
+    for row_idx, (label, values, highlight_idx) in enumerate(rows, start=2):
+        if values is None:
+            data.append([Paragraph(label.upper(), section_style)] + [""] * len(columns))
+            style_commands.extend([
+                ("SPAN", (0, row_idx), (-1, row_idx)),
+                ("BACKGROUND", (0, row_idx), (-1, row_idx), KEY_FINDING_BACKGROUND),
+                ("LINEABOVE", (0, row_idx), (-1, row_idx), lines.regular, DEWR_LIGHT_GREY),
+                ("LINEBELOW", (0, row_idx), (-1, row_idx), lines.fine, DEWR_SOFT_LINE),
+                ("TOPPADDING", (0, row_idx), (-1, row_idx), 9),
+                ("BOTTOMPADDING", (0, row_idx), (-1, row_idx), 7),
+            ])
+        else:
+            row_values = []
+            for value_idx, value in enumerate(values):
+                highlighted = (
+                    highlight_idx == "all"
+                    or (isinstance(highlight_idx, (list, tuple, set)) and value_idx in highlight_idx)
+                    or value_idx == highlight_idx
+                )
+                row_values.append(Paragraph(value, highlight_style if highlighted else value_style))
+            data.append([Paragraph(label, label_style)] + row_values)
+            style_commands.append(("LINEBELOW", (0, row_idx), (-1, row_idx), lines.fine, DEWR_SOFT_LINE))
+
+    table = Table(data, colWidths=col_widths, hAlign="LEFT")
+    table.setStyle(TableStyle(style_commands))
+    return KeepTogether([table])
 
 
 def build_paragraph_styles(fonts=None):
@@ -498,9 +801,9 @@ def build_paragraph_styles(fonts=None):
         ),
         "note": ParagraphStyle(
             "Note",
-            fontName=italic,
-            fontSize=8.5,
-            leading=11,
+            fontName=regular,
+            fontSize=7,
+            leading=9,
             textColor=TEXT_SECONDARY,
             spaceBefore=4,
             spaceAfter=6,

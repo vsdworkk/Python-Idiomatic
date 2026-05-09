@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reportlab-docs-cli"
+version = "0.1.0"
+description = "CLI for exploring ReportLab APIs, docs.reportlab.com links, and runnable examples."
+readme = "README-reportlab-docs-cli.md"
+requires-python = ">=3.9"
+dependencies = ["reportlab>=4"]
+
+[project.optional-dependencies]
+pdf = ["pypdf>=6", "pdfplumber>=0.11", "pymupdf>=1.24"]
+
+[project.scripts]
+reportlab-docs = "reportlab_docs_cli.cli:main"

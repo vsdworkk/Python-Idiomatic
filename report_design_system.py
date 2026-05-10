@@ -272,6 +272,7 @@ class TableSpec:
     access_row_height: float = 31.0
     cell_padding_x: float = 16.0
     cell_padding_y: float = 5.0
+    header_rule_gap: float = 4.0
     section_row_value: float = 8.0
 
 
@@ -498,13 +499,14 @@ def evidence_table_style():
     return TableStyle(
         [
             ("BACKGROUND", (0, 0), (-1, -1), DEWR_OFF_WHITE),
-            ("LINEBELOW", (0, 0), (-1, -1), lines.regular, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 0), (-1, 0), lines.fine, DEWR_LIGHT_GREY),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("LEFTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
             ("RIGHTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
             ("TOPPADDING", (0, 0), (-1, -1), table.cell_padding_y),
             ("BOTTOMPADDING", (0, 0), (-1, -1), table.cell_padding_y),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), table.header_rule_gap),
         ]
     )
 
@@ -515,11 +517,7 @@ def access_evidence_table_style():
     return TableStyle(
         [
             ("BACKGROUND", (0, 0), (-1, -1), DEWR_OFF_WHITE),
-            ("LINEBELOW", (0, 0), (-1, 0), lines.regular, DEWR_SOFT_LINE),
-            ("LINEBELOW", (0, 1), (-1, 1), lines.regular, DEWR_SOFT_LINE),
-            ("LINEBELOW", (0, 2), (-1, 2), lines.regular, DEWR_SOFT_LINE),
-            ("LINEBELOW", (0, 3), (-1, 3), lines.regular, DEWR_SOFT_LINE),
-            ("LINEBELOW", (0, 4), (-1, 4), lines.regular, DEWR_SOFT_LINE),
+            ("LINEBELOW", (0, 0), (-1, 0), lines.fine, DEWR_LIGHT_GREY),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("ALIGN", (0, 0), (0, 0), "LEFT"),
             ("ALIGN", (1, 1), (-1, -1), "CENTER"),
@@ -528,6 +526,7 @@ def access_evidence_table_style():
             ("RIGHTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
             ("TOPPADDING", (0, 0), (-1, -1), table.cell_padding_y),
             ("BOTTOMPADDING", (0, 0), (-1, -1), table.cell_padding_y),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), table.header_rule_gap),
         ]
     )
 
@@ -616,7 +615,7 @@ def build_key_finding_matrix_exhibit(
         ("BACKGROUND", (0, 0), (-1, 0), KEY_FINDING_BACKGROUND),
         ("LINEBEFORE", (0, 0), (0, 0), 4, DEWR_GREEN),
         ("BACKGROUND", (0, 1), (-1, -1), DEWR_OFF_WHITE),
-        ("LINEBELOW", (0, 1), (-1, 1), lines.fine, DEWR_SOFT_LINE),
+        ("LINEBELOW", (0, 1), (-1, 1), lines.fine, DEWR_LIGHT_GREY),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), table_spec.cell_padding_x),
         ("RIGHTPADDING", (0, 0), (-1, -1), table_spec.cell_padding_x),
@@ -625,7 +624,7 @@ def build_key_finding_matrix_exhibit(
         ("TOPPADDING", (0, 0), (-1, 0), 12),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
         ("TOPPADDING", (0, 1), (-1, 1), 12),
-        ("BOTTOMPADDING", (0, 1), (-1, 1), 12),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), table_spec.header_rule_gap),
         ("ALIGN", (1, 1), (-1, -1), "CENTER"),
     ]
 
@@ -635,8 +634,6 @@ def build_key_finding_matrix_exhibit(
             style_commands.extend([
                 ("SPAN", (0, row_idx), (-1, row_idx)),
                 ("BACKGROUND", (0, row_idx), (-1, row_idx), KEY_FINDING_BACKGROUND),
-                ("LINEABOVE", (0, row_idx), (-1, row_idx), lines.regular, DEWR_LIGHT_GREY),
-                ("LINEBELOW", (0, row_idx), (-1, row_idx), lines.fine, DEWR_SOFT_LINE),
                 ("TOPPADDING", (0, row_idx), (-1, row_idx), 9),
                 ("BOTTOMPADDING", (0, row_idx), (-1, row_idx), 7),
             ])
@@ -650,7 +647,6 @@ def build_key_finding_matrix_exhibit(
                 )
                 row_values.append(Paragraph(value, highlight_style if highlighted else value_style))
             data.append([Paragraph(label, label_style)] + row_values)
-            style_commands.append(("LINEBELOW", (0, row_idx), (-1, row_idx), lines.fine, DEWR_SOFT_LINE))
 
     table = Table(data, colWidths=col_widths, hAlign="LEFT")
     table.setStyle(TableStyle(style_commands))
@@ -819,7 +815,7 @@ def build_paragraph_styles(fonts=None):
         ),
         "s1_h2": ParagraphStyle("S1H2", parent=h2, spaceBefore=14, spaceAfter=10),
         "s1_h3": ParagraphStyle("S1H3", parent=h3, spaceBefore=0, spaceAfter=6),
-        "s1_body": ParagraphStyle("S1Body", parent=body, spaceAfter=0),
+        "s1_body": ParagraphStyle("S1Body", parent=body, spaceAfter=8),
     }
 
 

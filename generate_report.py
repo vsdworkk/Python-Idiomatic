@@ -1,6 +1,6 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
-from reportlab.lib.colors import white
+from reportlab.lib.colors import HexColor, white
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from reportlab.platypus import (
@@ -2613,6 +2613,253 @@ def build_report():
         table.setStyle(access_evidence_table_style())
         return table
 
+    key_findings_label_style = ParagraphStyle(
+        "KeyFindingsLabel",
+        parent=note_style,
+        fontName=FONT_BOLD,
+        fontSize=7.5,
+        leading=8.5,
+        textColor=DEWR_DARK_GREY,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    key_findings_card_kicker = ParagraphStyle(
+        "KeyFindingsCardKicker",
+        parent=note_style,
+        fontName=FONT_BOLD,
+        fontSize=7,
+        leading=8,
+        textColor=DEWR_TEXT_GREY,
+        spaceBefore=0,
+        spaceAfter=3,
+    )
+    key_findings_card_title = ParagraphStyle(
+        "KeyFindingsCardTitle",
+        parent=body_bold,
+        fontSize=10.2,
+        leading=12,
+        textColor=DEWR_DARK_GREY,
+        spaceBefore=0,
+        spaceAfter=5,
+    )
+    key_findings_card_metric = ParagraphStyle(
+        "KeyFindingsCardMetric",
+        parent=body_bold,
+        fontSize=18,
+        leading=20,
+        textColor=DEWR_DARK_GREEN,
+        spaceBefore=0,
+        spaceAfter=4,
+    )
+    key_findings_card_bullet = ParagraphStyle(
+        "KeyFindingsCardBullet",
+        parent=note_style,
+        fontSize=7.8,
+        leading=9.3,
+        leftIndent=8,
+        firstLineIndent=-8,
+        textColor=DEWR_DARK_GREY,
+        spaceBefore=0,
+        spaceAfter=3,
+    )
+    key_findings_feature_title = ParagraphStyle(
+        "KeyFindingsFeatureTitle",
+        parent=key_findings_card_title,
+        fontSize=12.2,
+        leading=14.5,
+        spaceAfter=8,
+    )
+    key_findings_feature_bullet = ParagraphStyle(
+        "KeyFindingsFeatureBullet",
+        parent=key_findings_card_bullet,
+        fontSize=9.0,
+        leading=11.6,
+        leftIndent=10,
+        firstLineIndent=-10,
+        spaceAfter=5,
+    )
+    key_findings_card_numbered = ParagraphStyle(
+        "KeyFindingsCardNumbered",
+        parent=note_style,
+        fontSize=7.8,
+        leading=9.3,
+        leftIndent=0,
+        firstLineIndent=0,
+        textColor=DEWR_DARK_GREY,
+        spaceBefore=0,
+        spaceAfter=4,
+    )
+    key_findings_implication_style = ParagraphStyle(
+        "KeyFindingsImplication",
+        parent=body_bold,
+        fontSize=11,
+        leading=14,
+        textColor=DEWR_DARK_GREY,
+        spaceBefore=0,
+        spaceAfter=5,
+    )
+    key_findings_small_body = ParagraphStyle(
+        "KeyFindingsSmallBody",
+        parent=note_style,
+        fontSize=8.2,
+        leading=10,
+        textColor=DEWR_DARK_GREY,
+        spaceBefore=0,
+        spaceAfter=4,
+    )
+
+    def key_findings_bullet(text, bullet_style_override=None):
+        if re.match(r"^\d+\.", text):
+            return Paragraph(text, key_findings_card_numbered)
+        return Paragraph(
+            f"<bullet>&bull;</bullet> {text}",
+            bullet_style_override or key_findings_card_bullet,
+        )
+
+    def key_findings_card(kicker, title, metric, bullets, feature=False):
+        title_style = key_findings_feature_title if feature else key_findings_card_title
+        bullet_style_override = key_findings_feature_bullet if feature else None
+        content = [Paragraph(title, title_style)]
+        content.extend(key_findings_bullet(item, bullet_style_override) for item in bullets)
+        height = 186 if feature else 82 + 16 * len(bullets)
+        return ["", content, height, feature]
+
+    def key_findings_card_grid(cards):
+        rows = []
+        row_heights = []
+        feature_rows = set()
+        for idx, card in enumerate(cards):
+            rows.append(card[:2])
+            row_heights.append(card[2])
+            if card[3]:
+                feature_rows.add(len(rows) - 1)
+            if idx < len(cards) - 1:
+                rows.append(["", ""])
+                row_heights.append(9)
+
+        table = Table(
+            rows,
+            colWidths=[5, width - 5],
+            rowHeights=row_heights,
+            hAlign="LEFT",
+        )
+        style = TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 12),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 11),
+            ("LEFTPADDING", (0, 0), (-1, -1), 13),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 13),
+        ])
+        for row_idx in range(0, len(rows), 2):
+            style.add("BACKGROUND", (0, row_idx), (0, row_idx), DEWR_GREEN)
+            bg_color = HexColor("#F4F7F1") if row_idx in feature_rows else DEWR_OFF_WHITE
+            style.add("BACKGROUND", (1, row_idx), (1, row_idx), bg_color)
+            style.add("BACKGROUND", (0, row_idx), (-1, row_idx), bg_color)
+            if row_idx not in feature_rows:
+                style.add("BOX", (0, row_idx), (-1, row_idx), LINES.hairline, DEWR_SOFT_LINE)
+            style.add("BACKGROUND", (0, row_idx), (0, row_idx), DEWR_GREEN)
+            style.add("LEFTPADDING", (0, row_idx), (0, row_idx), 0)
+            style.add("RIGHTPADDING", (0, row_idx), (0, row_idx), 0)
+            style.add("TOPPADDING", (0, row_idx), (0, row_idx), 0)
+            style.add("BOTTOMPADDING", (0, row_idx), (0, row_idx), 0)
+            style.add("LEFTPADDING", (1, row_idx), (1, row_idx), 13)
+        for row_idx in range(1, len(rows), 2):
+            style.add("BACKGROUND", (0, row_idx), (-1, row_idx), white)
+            style.add("TOPPADDING", (0, row_idx), (-1, row_idx), 0)
+            style.add("BOTTOMPADDING", (0, row_idx), (-1, row_idx), 0)
+        table.setStyle(style)
+        return table
+
+    def risk_metric(value, label):
+        return [
+            Paragraph(value, key_findings_card_metric),
+            Paragraph(label.upper(), key_findings_label_style),
+        ]
+
+    def key_findings_risk_panel():
+        metrics = Table(
+            [[risk_metric("75%", "comfortable with public tools"),
+              risk_metric("82.5%", "comfortable when safeguards were effective"),
+              risk_metric("48% vs 27%", "document upload gap")]],
+            colWidths=[width * 0.19, width * 0.24, width * 0.21],
+        )
+        metrics.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        content = [
+            Paragraph("RISK AND CONFIDENCE", key_findings_card_kicker),
+            Paragraph(
+                "Comfort enables adoption, but also increases exposure to boundary-case risk.",
+                key_findings_implication_style,
+            ),
+            metrics,
+            Spacer(1, 5),
+            key_findings_bullet(
+                "Respondents who were comfortable using the tools were almost twice as likely to upload documents."
+            ),
+            key_findings_bullet(
+                "Future mitigation should strengthen user judgement and boundary clarity, not rely only on tighter access controls."
+            ),
+            key_findings_bullet(
+                f"Ethical considerations were reported by {red_markup(marked_value('12%', '11%'))} of respondents, compared with 3% for security concerns."
+            ),
+        ]
+        table = Table([[content]], colWidths=[width])
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), DEWR_OFF_WHITE),
+            ("LINEBEFORE", (0, 0), (0, 0), 4, DEWR_GREEN),
+            ("BOX", (0, 0), (-1, -1), LINES.hairline, DEWR_SOFT_LINE),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 13),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+            ("LEFTPADDING", (0, 0), (-1, -1), 15),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 15),
+        ]))
+        return table
+
+    def key_findings_action_cards():
+        action_title = ParagraphStyle(
+            "KeyFindingsActionTitle",
+            parent=key_findings_card_title,
+            fontSize=9.5,
+            leading=11.2,
+            spaceAfter=4,
+        )
+        cells = [
+            [
+                Paragraph("SCALE", key_findings_card_kicker),
+                Paragraph("Prioritise integrated tools where time savings are strongest.", action_title),
+                Paragraph("M365 Copilot already shows higher value for complex knowledge work.", key_findings_small_body),
+            ],
+            [
+                Paragraph("FIX", key_findings_card_kicker),
+                Paragraph("Resolve corporate integration and free-tool usage limits.", action_title),
+                Paragraph("These are the most visible constraints for experienced users.", key_findings_small_body),
+            ],
+            [
+                Paragraph("GOVERN", key_findings_card_kicker),
+                Paragraph("Clarify risky boundary cases before expanding use.", action_title),
+                Paragraph("Comfort should be paired with sharper guidance and judgement aids.", key_findings_small_body),
+            ],
+        ]
+        table = Table([cells], colWidths=[width / 3] * 3)
+        style = TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), white),
+            ("BOX", (0, 0), (-1, -1), LINES.hairline, DEWR_SOFT_LINE),
+            ("INNERGRID", (0, 0), (-1, -1), LINES.hairline, DEWR_SOFT_LINE),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+            ("LEFTPADDING", (0, 0), (-1, -1), 11),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 11),
+        ])
+        table.setStyle(style)
+        return table
+
     def sp(h=RHYTHM.paragraph_gap):
         return Spacer(1, h)
 
@@ -2767,96 +3014,69 @@ def build_report():
     # ==============================
     story.append(toc_heading("Key findings", copilot_section_header, 1))
     story.append(after_note_gap())
+    story.append(key_findings_card_grid([
+        key_findings_card(
+            "",
+            "Copilot already saves us time: 3 to 6 hours per week",
+            "",
+            [
+                f"M365 Copilot users saved nearly 6 hours per week, or {red_markup(marked_value('68', '69', ' minutes per day'))}, equating to a time saving of about 15%.",
+                "Copilot Chat users saved just under 3 hours per week, or about 34 minutes per day, equating to a time saving of about 8%.",
+                "An M365 license becomes a net positive within two weeks after factoring in its cost, all else equal.",
+                "All versions of Copilot were used for summarising, editing and revision, and drafting.",
+                "M365 Copilot was more commonly used for complex knowledge work such as research, problem solving and ideation, and for planning or meeting preparation.",
+            ],
+            feature=True,
+        ),
+        key_findings_card(
+            "",
+            "Right AI for right task: Public Generative AI tools used for knowledge work",
+            "",
+            [
+                "Usage of the public tools was clustered around general knowledge-work tasks rather than specialised or administrative workflows.",
+                "Research, summarising, editing and drafting were the dominant use cases across the trial.",
+                "72% of respondents indicated that they wanted to continue using at least one of the Public Generative AI tools after the end of the trial.",
+                "Some users expressed a strong preference for continued access to the tools. This was most prominently seen for experienced or highly experienced AI users, 55% of whom strongly agreed that they wanted continued access, while users with more limited experience were less emphatic.",
+            ],
+        ),
+        key_findings_card(
+            "",
+            "The public tools have limitations: integration and usage limits, with experienced AI users most affected",
+            "",
+            [
+                "92% of users reported some limitation when using the public tools.",
+                "49% of survey respondents reported lack of integration with corporate tools as a barrier. This was consistent across all three tools.",
+                "41% of survey respondents reported the prompt or request limits offered by the free tools as a barrier.",
+                "Almost 60% of experienced and highly experienced AI users reported hitting usage caps as an issue, compared to about 30% of less experienced users.",
+            ],
+        ),
+        key_findings_card(
+            "",
+            "ChatGPT was the most used Public Generative AI tool, but Claude was more useful for our staff",
+            "",
+            [
+                "ChatGPT was the entry point, with most participants (92%) using it during the trial.",
+                "About two-thirds of those who used ChatGPT rated it as at least moderately useful and under one third rated it as very or extremely useful.",
+                "In comparison, only about two thirds of participants used Claude, but 7 in 10 rated it as at least moderately useful and almost half rated it as very or extremely useful.",
+            ],
+        ),
+        key_findings_card(
+            "",
+            "Comfort and concerns using the public tools",
+            "",
+            [
+                "1. Three quarters of respondents were comfortable with the public tools, but a quarter were not comfortable using them.",
+                f"2. Comfort was higher among respondents who rated both the introductory email and security splash screens as effective: 82.5% were comfortable or very comfortable using public tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective.",
+                "3. Respondents who were comfortable using the tools seem to have been more likely to utilise more risky features. While both comfortable and uncomfortable users were just as likely to paste information into the tools, users who were comfortable using them were almost twice as likely (48% vs 27%) to upload documents.",
+                "4. The results suggest that future risk mitigation may benefit more from clarifying boundary cases and strengthening user judgement than from further restricting access or expanding technical controls alone.",
+                f"5. Ethical considerations were more likely to be reported ({red_markup(marked_value('12%', '11%'))} of respondents) compared to security concerns (3%).",
+            ],
+        ),
+    ]))
+    story.append(PageBreak())
 
-    story.append(Paragraph("Copilot already saves us time: 3 to 6 hours per week", h3))
-    story.append(bullet(
-        f"M365 Copilot users saved nearly 6 hours per week, or {red_markup(marked_value('68', '69', ' minutes per day'))}, equating to a "
-        "time saving of about 15%."))
-    story.append(bullet(
-        "Copilot Chat users saved just under 3 hours per week, or about 34 minutes per day, "
-        "equating to a time saving of about 8%."))
-    story.append(bullet(
-        "An M365 license becomes a net positive within two weeks after factoring in its cost, "
-        "all else equal."))
-    story.append(bullet(
-        "All versions of Copilot were used for summarising, editing and revision, and drafting."))
-    story.append(bullet(
-        "M365 Copilot was more commonly used for complex knowledge work such as research, "
-        "problem solving and ideation, and for planning or meeting preparation."))
-    story.append(section_gap())
-
-    story.append(Paragraph(
-        "Right AI for right task: Public Generative AI tools used for knowledge work",
-        h3))
-    story.append(bullet(
-        "Usage of the public tools was clustered around general knowledge-work tasks rather "
-        "than specialised or administrative workflows."))
-    story.append(bullet(
-        "Research, summarising, editing and drafting were the dominant use cases across the "
-        "trial."))
-    story.append(bullet(
-        "72% of respondents indicated that they wanted to continue using at least one of the "
-        "Public Generative AI tools after the end of the trial."))
-    story.append(bullet(
-        "Some users expressed a strong preference for continued access to the tools. This was "
-        "most prominently seen for experienced or highly experienced AI users, 55% of whom "
-        "strongly agreed that they wanted continued access, while users with more limited "
-        "experience were less emphatic."))
-    story.append(section_gap())
-
-    story.append(Paragraph(
-        "The public tools have limitations: integration and usage limits, with experienced AI users most affected",
-        h3))
-    story.append(bullet("92% of users reported some limitation when using the public tools."))
-    story.append(bullet(
-        "49% of survey respondents reported lack of integration with corporate tools as a "
-        "barrier. This was consistent across all three tools."))
-    story.append(bullet(
-        "41% of survey respondents reported the prompt or request limits offered by the free tools "
-        "as a barrier."))
-    story.append(bullet(
-        "Almost 60% of experienced and highly experienced AI users reported hitting usage caps "
-        "as an issue, compared to about 30% of less experienced users."))
-    story.append(CondPageBreak(180))
-
-    story.append(Paragraph(
-        "ChatGPT was the most used Public Generative AI tool, but Claude was more useful for our staff",
-        h3))
-    story.append(bullet(
-        "ChatGPT was the entry point, with most participants (92%) using it during the trial."))
-    story.append(bullet(
-        "About two-thirds of those who used ChatGPT rated it as at least moderately useful and "
-        "under one third rated it as very or extremely useful."))
-    story.append(bullet(
-        "In comparison, only about two thirds of participants used Claude, but 7 in 10 rated it "
-        "as at least moderately useful and almost half rated it as very or extremely useful."))
-    story.append(section_gap())
-
-    story.append(Paragraph("Comfort and concerns using the public tools", h3))
-    story.append(Paragraph(
-        "1. Three quarters of respondents were comfortable with the public tools, but a quarter "
-        "were not comfortable using them.",
-        body))
-    story.append(Paragraph(
-        "2. Comfort was higher among respondents who rated both the introductory email and "
-        "security splash screens as effective: 82.5% were comfortable or very comfortable using "
-        f"public tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective.",
-        body))
-    story.append(Paragraph(
-        "3. Respondents who were comfortable using the tools seem to have been more likely to "
-        "utilise more risky features. While both comfortable and uncomfortable users were just "
-        "as likely to paste information into the tools, users who were comfortable using them "
-        "were almost twice as likely (48% vs 27%) to upload documents.",
-        body))
-    story.append(Paragraph(
-        "4. The results suggest that future risk mitigation may benefit more from clarifying "
-        "boundary cases and strengthening user judgement than from further restricting access "
-        "or expanding technical controls alone.",
-        body))
-    story.append(Paragraph(
-        f"5. Ethical considerations were more likely to be reported ({red_markup(marked_value('12%', '11%'))} of respondents) "
-        "compared to security concerns (3%).",
-        body))
+    story.append(Paragraph("Decision implications", h3))
+    story.append(key_findings_action_cards())
     story.append(PageBreak())
 
     # ==============================

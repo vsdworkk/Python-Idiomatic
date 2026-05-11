@@ -2801,7 +2801,6 @@ def build_report():
     )
 
     story.append(toc_heading("Executive summary", evaluation_h1, 0))
-    story.append(after_note_gap())
     executive_quote = Table(
         [[
             "",
@@ -2951,7 +2950,6 @@ def build_report():
     # EVALUATION FINDINGS
     # ==============================
     story.append(toc_heading("Evaluation findings", evaluation_h1, 0))
-    story.append(after_note_gap())
 
     # Section 1: Microsoft M365 Copilot and Copilot Chat
     story.append(toc_heading("Microsoft M365 Copilot and Copilot Chat", copilot_section_header, 1))

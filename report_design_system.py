@@ -570,7 +570,7 @@ def build_paragraph_styles(fonts=None):
         leading=24,
         textColor=TEXT,
         spaceBefore=16,
-        spaceAfter=10,
+        spaceAfter=20,
     )
     h2 = ParagraphStyle(
         "H2",
@@ -631,7 +631,7 @@ def build_paragraph_styles(fonts=None):
             fontSize=8.8,
             leading=11,
             textColor=TEXT,
-            spaceBefore=4,
+            spaceBefore=10,
             spaceAfter=4,
         ),
         "metric_context": ParagraphStyle(

@@ -111,6 +111,14 @@ def visual_title_style(name, **overrides):
     return visual_style(name, "visual_title", **overrides)
 
 
+def marked_value(new, old, suffix=""):
+    return f"{new}{suffix}"
+
+
+def red_markup(text):
+    return text
+
+
 def callout_text_style(name, text_color=white):
     return visual_style(
         name,
@@ -199,7 +207,15 @@ def draw_delta_dot_plot(
 
     for row_idx, row in enumerate(rows):
         label, high, low = row[:3]
-        muted = bool(row[3]) if len(row) > 3 else False
+        old_high = None
+        old_low = None
+        muted = False
+        if len(row) >= 6:
+            old_high, old_low, muted = row[3:6]
+        elif len(row) == 5:
+            old_high, old_low = row[3:5]
+        elif len(row) == 4:
+            muted = bool(row[3])
         high_color = FOGGED_EUCALYPTUS if muted else DEWR_DARK_GREEN
         low_color = FOGGED_GRAPHITE if muted else DEWR_DARK_GREY
         y = top_y - row_idx * row_gap
@@ -218,11 +234,13 @@ def draw_delta_dot_plot(
         c.setFillColor(high_color)
         c.circle(high_x, y + marker_y_offset, 3.8, fill=1, stroke=0)
 
+        low_text = marked_value(fmt(low), fmt(old_low)) if old_low is not None else fmt(low)
+        high_text = marked_value(fmt(high), fmt(old_high)) if old_high is not None else fmt(high)
         c.setFont(FONT_BOLD, VISUAL_TEXT.table_value)
         c.setFillColor(low_color)
-        c.drawRightString(low_x - value_gap, y - 1, fmt(low))
+        c.drawRightString(low_x - value_gap, y - 1, low_text)
         c.setFillColor(high_color)
-        c.drawString(high_x + value_gap, y - 1, fmt(high))
+        c.drawString(high_x + value_gap, y - 1, high_text)
         c.setFillColor(high_color)
         if delta_position == "midline":
             c.drawCentredString((low_x + high_x) / 2, y + 12, delta_fmt(high, low))
@@ -426,7 +444,7 @@ class ValueSignalsPanel(Flowable):
         for i, (value, label) in enumerate(self.items):
             x = pad + i * col_w
             cx = x + col_w / 2
-            value_color = DEWR_DARK_GREEN if "(" in value else (DEWR_GREEN if i < self.primary_count else DEWR_DARK_GREY)
+            value_color = DEWR_RED if "(" in value else (DEWR_GREEN if i < self.primary_count else DEWR_DARK_GREY)
             c.setFillColor(value_color)
             value_size = VISUAL_TEXT.kpi_value_medium if len(value) <= 8 else VISUAL_TEXT.kpi_value_compact
             c.setFont(FONT_BOLD, value_size)
@@ -507,7 +525,7 @@ class CalloutSignalsPanel(Flowable):
                 c.setStrokeColor(DEWR_LIGHT_GREY)
                 c.setLineWidth(LINES.fine)
                 c.line(x, card_y + 11, x, card_y + card_h - (27 if self.note else 11))
-            c.setFillColor(DEWR_GREEN if i < self.primary_count else DEWR_DARK_GREY)
+            c.setFillColor(DEWR_RED if "(" in value else (DEWR_GREEN if i < self.primary_count else DEWR_DARK_GREY))
             value_size = VISUAL_TEXT.kpi_value_medium if len(value) <= 8 else VISUAL_TEXT.kpi_value_compact
             c.setFont(FONT_BOLD, value_size)
             c.drawCentredString(cx, value_y, value)
@@ -547,8 +565,8 @@ class TimeSavingsPanel(Flowable):
         bar_h = CHART_LAYOUT.bar_height_medium
         max_value = 75
         rows = [
-            ("M365 Copilot", 67.9, "68 minutes per day", "5.7 hours per week", DEWR_DARK_GREEN),
-            ("Copilot Chat", 33.5, "34 minutes per day", "2.8 hours per week", DEWR_DARK_GREY),
+            ("M365 Copilot", 67.9, marked_value("68", "69", " minutes per day"), "5.7 hours per week", DEWR_DARK_GREEN),
+            ("Copilot Chat", 33.5, marked_value("34", "34", " minutes per day"), "2.8 hours per week", DEWR_DARK_GREY),
         ]
         for i, (label, value, daily_label, weekly, color) in enumerate(rows):
             y = h - 41 - i * 35
@@ -561,8 +579,9 @@ class TimeSavingsPanel(Flowable):
             c.setFillColor(color)
             c.setFont(FONT_BOLD, VISUAL_TEXT.time_savings_value)
             c.drawRightString(w - pad, y + 2, weekly)
-            c.setFillColor(DEWR_DARK_GREY)
-            c.setFont(FONT_REGULAR, VISUAL_TEXT.time_savings_context)
+            c.setFillColor(DEWR_RED if "(" in daily_label else DEWR_DARK_GREY)
+            context_size = VISUAL_TEXT.time_savings_context - 0.3 if "(" in daily_label else VISUAL_TEXT.time_savings_context
+            c.setFont(FONT_REGULAR, context_size)
             c.drawRightString(w - pad, y - 12, daily_label)
         c.restoreState()
 
@@ -783,9 +802,9 @@ class CopilotEngagementDeltaPanel(Flowable):
         Flowable.__init__(self)
         self.box_width = width
         self.rows = [
-            ("Rated at least very useful", 67, 37),
-            ("Used at least weekly", 80, 56),
-            ("Used at least daily", 63, 27),
+            ("Rated at least very useful", 68, 35, 67, 37),
+            ("Used at least weekly", 81, 55, 80, 56),
+            ("Used at least daily", 65, 25, 63, 27),
         ]
         self._height = 126
 
@@ -917,7 +936,7 @@ class EvidenceMatrixPanel(Flowable):
                     or (isinstance(highlight_idx, (list, tuple, set)) and i in highlight_idx)
                     or i == highlight_idx
                 )
-                c.setFillColor(DEWR_DARK_GREEN if highlighted else DEWR_DARK_GREY)
+                c.setFillColor(DEWR_RED if "(" in value else (DEWR_DARK_GREEN if highlighted else DEWR_DARK_GREY))
                 c.drawCentredString(data_x + i * col_w + col_w / 2, row_mid - 4, value)
         c.restoreState()
 
@@ -1670,7 +1689,7 @@ class AllToolTaskProfilePanel(Flowable):
                 c.circle(x, y, CHART_LAYOUT.dot_radius, fill=1, stroke=0)
 
                 if highlighted:
-                    label_text = f"{value:.1f}%"
+                    label_text = marked_value(f"{value:.1f}%", f"{old_values[i]:.1f}%") if old_values[i] is not None else f"{value:.1f}%"
                     c.setFont(FONT_BOLD, VISUAL_TEXT.chart_value_label_compact)
                     text_w = c.stringWidth(label_text, FONT_BOLD, VISUAL_TEXT.chart_value_label_compact)
                     label_x = x + 5
@@ -2189,12 +2208,22 @@ class TaskFootprintExhibit(Flowable):
             c.setFillColor(m365_color)
             c.circle(m365_x, y, CHART_LAYOUT.dot_radius_highlight if highlight else CHART_LAYOUT.dot_radius_compact, fill=1, stroke=0)
 
-            if highlight:
-                c.setFont(FONT_BOLD, VISUAL_TEXT.chart_value_label)
-                c.setFillColor(DEWR_DARK_GREY)
-                c.drawRightString(chat_x - 6, y - 3, f"{chat:.1f}%")
-                c.setFillColor(DEWR_DARK_GREEN)
-                c.drawString(m365_x + 6, y - 3, f"{m365:.1f}%")
+            c.setFont(FONT_BOLD, VISUAL_TEXT.chart_value_label_compact)
+            chat_text = marked_value(f"{chat:.1f}%", f"{old_chat:.1f}%")
+            m365_text = marked_value(f"{m365:.1f}%", f"{old_m365:.1f}%")
+            chat_w = c.stringWidth(chat_text, FONT_BOLD, VISUAL_TEXT.chart_value_label_compact)
+            m365_w = c.stringWidth(m365_text, FONT_BOLD, VISUAL_TEXT.chart_value_label_compact)
+
+            c.setFillColor(chat_color)
+            if chat_x - 6 - chat_w < axis_x:
+                c.drawString(chat_x + 6, y - 3, chat_text)
+            else:
+                c.drawRightString(chat_x - 6, y - 3, chat_text)
+            c.setFillColor(m365_color)
+            if m365_x + 6 + m365_w > axis_x + axis_w + 4:
+                c.drawRightString(m365_x - 6, y - 3, m365_text)
+            else:
+                c.drawString(m365_x + 6, y - 3, m365_text)
         c.restoreState()
 
 
@@ -2490,6 +2519,13 @@ def build_report():
             alignment=TA_CENTER,
             textColor=table_text_color,
         )
+        compact_header_style = visual_style(
+            "AccessEvidenceHeaderCompact",
+            "table_header",
+            parent=header_style,
+            fontSize=7.2,
+            leading=9.0,
+        )
         measure_header_style = visual_style(
             "AccessEvidenceMeasureHeader",
             "table_header",
@@ -2524,39 +2560,51 @@ def build_report():
                 Paragraph("MEASURE", measure_header_style),
                 Paragraph("COPILOT CHAT", header_style),
                 Paragraph("M365 COPILOT", header_style),
+                Paragraph("HIGHLY EXPERIENCED<br/>OR EXPERIENCED", compact_header_style),
+                Paragraph("SOME OR NO OR BASIC<br/>EXPERIENCE", compact_header_style),
             ],
             [
                 Paragraph("Public AI rated at least moderately useful", measure_style),
-                Paragraph("82.4%", value_style_green),
-                Paragraph("77.8%", value_style_dark),
+                Paragraph(marked_value("81.8%", "82.4%"), value_style_green),
+                Paragraph(marked_value("78.6%", "77.8%"), value_style_dark),
+                Paragraph("90.9%", value_style_dark),
+                Paragraph("74.4%", value_style_dark),
             ],
             [
                 Paragraph("Copilot rated at least moderately useful", measure_style),
-                Paragraph("70.6%", value_style_dark),
-                Paragraph("92.6%", value_style_green),
+                Paragraph(marked_value("69.7%", "70.6%"), value_style_dark),
+                Paragraph(marked_value("92.9%", "92.6%"), value_style_green),
+                Paragraph("72.7%", value_style_dark),
+                Paragraph("84.6%", value_style_dark),
             ],
             [
                 Paragraph("Public AI used weekly or more", measure_style),
-                Paragraph("52.9%", value_style_green),
-                Paragraph("51.9%", value_style_dark),
+                Paragraph(marked_value("54.5%", "52.9%"), value_style_green),
+                Paragraph(marked_value("50.0%", "51.9%"), value_style_dark),
+                Paragraph("77.3%", value_style_dark),
+                Paragraph("35.9%", value_style_dark),
             ],
             [
                 Paragraph("Copilot used weekly or more", measure_style),
-                Paragraph("58.8%", value_style_dark),
-                Paragraph("85.2%", value_style_green),
+                Paragraph(marked_value("57.6%", "58.8%"), value_style_dark),
+                Paragraph(marked_value("85.7%", "85.2%"), value_style_green),
+                Paragraph("81.8%", value_style_dark),
+                Paragraph("64.1%", value_style_dark),
             ],
             [
                 Paragraph("Public AI added value beyond Copilot", measure_style),
-                Paragraph("73.5%", value_style_dark),
-                Paragraph("81.5%", value_style_green),
+                Paragraph(marked_value("75.0%", "73.5%"), value_style_dark),
+                Paragraph(marked_value("82.1%", "81.5%"), value_style_green),
+                Paragraph("90.9%", value_style_dark),
+                Paragraph("69.2%", value_style_dark),
             ],
         ]
-        first_w = width * 0.52
-        col_w = (width - first_w) / 2
+        first_w = width * 0.34
+        col_w = (width - first_w) / 4
         table = Table(
             data,
-            colWidths=[first_w, col_w, col_w],
-            rowHeights=[TABLE_SPEC.access_header_height] + [TABLE_SPEC.access_row_height] * (len(data) - 1),
+            colWidths=[first_w, col_w, col_w, col_w, col_w],
+            rowHeights=[44] + [36] * (len(data) - 1),
         )
         table.setStyle(access_evidence_table_style())
         return table
@@ -2715,7 +2763,7 @@ def build_report():
 
     story.append(Paragraph("Copilot already saves us time: 3 to 6 hours per week", h3))
     story.append(bullet(
-        "M365 Copilot users saved nearly 6 hours per week, or 69 minutes per day, equating to a "
+        f"M365 Copilot users saved nearly 6 hours per week, or {red_markup(marked_value('68', '69', ' minutes per day'))}, equating to a "
         "time saving of about 15%."))
     story.append(bullet(
         "Copilot Chat users saved just under 3 hours per week, or about 34 minutes per day, "
@@ -2785,7 +2833,7 @@ def build_report():
     story.append(Paragraph(
         "2. Comfort was higher among respondents who rated both the introductory email and "
         "security splash screens as effective: 82.5% were comfortable or very comfortable using "
-        "public tools, compared with 60.0% among respondents who did not rate both channels effective.",
+        f"public tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective.",
         body))
     story.append(Paragraph(
         "3. Respondents who were comfortable using the tools seem to have been more likely to "
@@ -2799,7 +2847,7 @@ def build_report():
         "or expanding technical controls alone.",
         body))
     story.append(Paragraph(
-        "5. Ethical considerations were more likely to be reported (11% of respondents) "
+        f"5. Ethical considerations were more likely to be reported ({red_markup(marked_value('12%', '11%'))} of respondents) "
         "compared to security concerns (3%).",
         body))
     story.append(PageBreak())
@@ -2819,8 +2867,8 @@ def build_report():
         width,
         [
             ("2.0x", "More weekly time saved"),
-            ("1.9x", "More likely to rate very or extremely useful"),
-            ("1.5x", "More likely to use weekly or more often"),
+            (marked_value("1.9x", "1.8x"), "More likely to rate very or extremely useful"),
+            (marked_value("1.5x", "1.4x"), "More likely to use weekly or more often"),
         ],
         primary_count=1,
         note="M365 Copilot relative to Copilot Chat",
@@ -2844,7 +2892,7 @@ def build_report():
     story.append(figure_label("Average weekly time saved by Copilot version", figure_label_center_style))
     story.append(sp(9))
     story.append(Paragraph(
-        "The reported 69 minutes per day for M365 Copilot users is in the same broad range as the "
+        f"The reported {red_markup(marked_value('68 minutes per day', '69 minutes per day'))} for M365 Copilot users is in the same broad range as the "
         "DTA whole-of-government Copilot trial, which identified around an hour a day of perceived "
         "savings in high-frequency tasks such as summarising, drafting and meeting support.",
         s1_body))
@@ -3055,18 +3103,18 @@ def build_report():
     story.append(sp(9))
     story.append(Paragraph("Copilot Chat and M365 Copilot users get different value from Public Gen AI tools", h3_after_callout))
     story.append(Paragraph(
-        "M365 Copilot and Copilot Chat users both rated the Public Generative AI tools "
-        "as useful at comparable levels. M365 license holders, who were more likely to rate "
-        "Copilot as useful and to use it more frequently, were also more likely to report getting "
-        "more value out of the Public Gen AI tools on top of Copilot. Furthermore, while they "
-        "reported value from the Public Gen AI tools, they used them at a comparable rate to "
-        "Copilot Chat users.",
+        f"Among Copilot Chat/basic users, {red_markup(marked_value('81.8%', '82.4%'))} rated public AI tools useful, "
+        f"compared with {red_markup(marked_value('69.7%', '70.6%'))} who rated Copilot at least moderately useful. "
+        f"Among M365 Copilot users, the pattern was reversed: {red_markup(marked_value('92.9%', '92.6%'))} rated Copilot at least moderately useful, "
+        f"compared with {red_markup(marked_value('78.6%', '77.8%'))} who rated public AI tools useful.",
         body))
     story.append(Paragraph(
-        "This suggests that M365 Copilot users, who tend to be more experienced AI users, were "
-        "better equipped to find complementary use cases for the public tools while continuing to "
-        "use Copilot frequently. In contrast, Copilot Chat users may have been more likely to "
-        "substitute Copilot for the Public tools.",
+        f"Weekly use points to the same relative pattern. Public AI weekly use was similar across access groups "
+        f"({red_markup(marked_value('54.5%', '52.9%'))} for Copilot Chat/basic users and {red_markup(marked_value('50.0%', '51.9%'))} for M365 Copilot users). "
+        f"However, for Copilot Chat/basic users, public AI weekly use sat close to their Copilot weekly use "
+        f"({red_markup(marked_value('57.6%', '58.8%'))}), while for M365 Copilot users it sat well below their Copilot weekly use "
+        f"({red_markup(marked_value('85.7%', '85.2%'))}). Public AI added value beyond Copilot for "
+        f"{red_markup(marked_value('75.0%', '73.5%'))} of Copilot Chat/basic users and {red_markup(marked_value('82.1%', '81.5%'))} of M365 Copilot users.",
         body))
     story.append(visual_spacer())
     story.append(KeepTogether([
@@ -3074,6 +3122,12 @@ def build_report():
         tight_gap(),
         figure_label("Copilot access value comparison"),
     ]))
+    story.append(source_note(
+        f"Note: Results are based on respondents with known Copilot version who used at least one public AI tool and provided valid responses for the relevant measures. "
+        f"M365 Copilot {red_markup(marked_value('n=28', 'n=27'))}; Copilot Chat/basic {red_markup(marked_value('n=33', 'n=34'))}; "
+        "Highly Experienced or Experienced n=22; Some or No or Basic Experience n=39. "
+        "Useful means moderately, very or extremely useful."
+    ))
     story.append(para_gap())
 
     # Prior experience variation
@@ -3215,7 +3269,7 @@ def build_report():
     story.append(ValueSignalsPanel(width, [
         ("75%", "Comfortable or very comfortable using public tools"),
         ("25%", "Uncomfortable using public tools"),
-        ("11%", "Ethical concerns encountered"),
+        (marked_value("12%", "11%"), "Ethical concerns encountered"),
         ("3%", "Reported specific security concerns"),
     ], primary_count=1))
     story.append(sp(9))
@@ -3232,12 +3286,12 @@ def build_report():
     story.append(Paragraph(
         "Survey results showed relatively high comfort using public tools. Three-quarters of "
         "respondents were comfortable or very comfortable using public tools, while one-quarter were "
-        "uncomfortable. Reported concerns were lower: 11% reported ethical concerns and 3% reported "
+        f"uncomfortable. Reported concerns were lower: {red_markup(marked_value('12%', '11%'))} reported ethical concerns and 3% reported "
         "specific security concerns.", body))
     story.append(Paragraph(
         "Comfort was also higher among respondents who rated both the introductory email and splash "
         "screens effective: 82.5% of this group were comfortable or very comfortable using public "
-        "tools, compared with 61.9% among respondents who did not rate both channels effective.", body))
+        f"tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective.", body))
 
     story.append(Paragraph("Respondent comments showed uncertainty at practical boundaries", h3))
     story.append(Paragraph(

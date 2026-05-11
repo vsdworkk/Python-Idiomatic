@@ -587,7 +587,7 @@ def build_paragraph_styles(fonts=None):
         fontSize=11.5,
         leading=15,
         textColor=TEXT,
-        spaceBefore=10,
+        spaceBefore=18,
         spaceAfter=6,
     )
 
@@ -696,9 +696,6 @@ def build_paragraph_styles(fonts=None):
             spaceBefore=4,
             spaceAfter=4,
         ),
-        "s1_h2": ParagraphStyle("S1H2", parent=h2, spaceBefore=14, spaceAfter=10),
-        "s1_h3": ParagraphStyle("S1H3", parent=h3, spaceBefore=0, spaceAfter=6),
-        "s1_body": ParagraphStyle("S1Body", parent=body, spaceAfter=8),
     }
 
 

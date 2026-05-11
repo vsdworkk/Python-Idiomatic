@@ -2503,12 +2503,9 @@ def build_report():
     quote_style = styles["quote"]
     note_style = styles["note"]
     chart_title = styles["chart_title"]
-    s1_h2 = styles["s1_h2"]
-    s1_h3 = styles["s1_h3"]
-    s1_body = styles["s1_body"]
     copilot_section_header = ParagraphStyle(
         "CopilotSectionHeader",
-        parent=s1_h2,
+        parent=h2,
         textColor=OCE_PLUM,
     )
     toc_level_0 = ParagraphStyle(
@@ -2976,14 +2973,13 @@ def build_report():
         "A total of 71 survey respondents indicated that they used copilot and answered questions "
         "about how they used it, how often, and how much time they believed it saved them.",
         section_intro))
-    story.append(visual_gap())
 
     # Time savings
-    story.append(Paragraph("M365 Copilot users reported substantially higher time savings", s1_h3))
+    story.append(Paragraph("M365 Copilot users reported substantially higher time savings", h3))
     story.append(Paragraph(
         "M365 Copilot users reported average time savings of 5.7 hours per week, compared with "
         "2.8 hours per week for Copilot Chat users. This means M365 Copilot users reported "
-        "roughly twice the weekly time savings of Copilot Chat users.", s1_body))
+        "roughly twice the weekly time savings of Copilot Chat users.", body))
     story.append(visual_spacer())
     story.append(TimeSavingsPanel(width))
     story.append(tight_gap())
@@ -2993,38 +2989,37 @@ def build_report():
         f"The reported {red_markup(marked_value('68 minutes per day', '69 minutes per day'))} for M365 Copilot users is in the same broad range as the "
         "DTA whole-of-government Copilot trial, which identified around an hour a day of perceived "
         "savings in high-frequency tasks such as summarising, drafting and meeting support.",
-        s1_body))
+        body))
     story.append(Paragraph(
         "As of 1 July 2026, the cost for an M365 license is expected to be $299.54 per year. The "
         "average APS employee earns $114,938 per year, which, spread across approximately 250 "
         "working days, equates to approximately $61 per hour. Given that M365 Copilot saves an "
         "additional 2.9 hours per week compared to Copilot Chat, a license starts to deliver "
         "productivity increases by the end of the second week.",
-        s1_body))
+        body))
     story.append(PageBreak())
 
     # Usefulness and frequency
     story.append(KeepTogether([
-        Paragraph("Higher time savings were matched by deeper engagement", s1_h3),
+        Paragraph("Higher time savings were matched by deeper engagement", h3),
         Paragraph(
             "The productivity gap was reinforced by engagement signals. M365 Copilot users were "
-            "more likely to rate Copilot as highly useful and to use it more frequently.", s1_body),
+            "more likely to rate Copilot as highly useful and to use it more frequently.", body),
         visual_spacer(),
         CopilotEngagementDeltaPanel(width),
         tight_gap(),
         figure_label("Copilot engagement and value signals by version"),
     ]))
-    story.append(visual_gap())
 
     # Department usage and value
     story.append(KeepTogether([
-        Paragraph("Copilot usage and value across the department", s1_h3),
+        Paragraph("Copilot usage and value across the department", h3),
         Paragraph(
             "M365 Copilot is associated with higher reported productivity across both workforce segments and organisational groups. EL and APS users both reported greater weekly time savings with M365 Copilot than with Copilot Chat, with the productivity improvements strongest for EL users who reported M365 Copilot time savings at 2.7x the rate of Copilot Chat users.",
-            s1_body),
+            body),
         Paragraph(
             "A similar pattern appears across organisational groups, where Corporate and Enabling, Employment and Workforce, and Skills groups reported the largest relative uplifts (2.5x, 2.2x, and 1.9x respectively), while Workplace Relations reported only slightly higher productivity over Copilot Chat (1.2x).",
-            s1_body),
+            body),
         visual_spacer(),
     ]))
     story.append(Paragraph("By employee classification", body_bold))
@@ -3066,16 +3061,15 @@ def build_report():
         "M365 licence = proportion of each group with an M365 licence. "
         "Jobs and Skills Australia was excluded because of low sample size."))
     story.append(after_figure_label_gap())
-    story.append(sp(6))
 
     # Task types
     story.append(KeepTogether([
-        Paragraph("M365 Copilot users reported a broader task footprint", s1_h3),
+        Paragraph("M365 Copilot users reported a broader task footprint", h3),
         sp(RHYTHM.heading_gap),
         Paragraph(
             "All versions of Copilot were used most often for summarising, editing and revision, "
             "and drafting, but M365 Copilot users reported greater use across more task types on "
-            "average than Copilot Chat users.", s1_body),
+            "average than Copilot Chat users.", body),
         sp(6),
         evidence_bullet(
             "M365 Copilot users were more likely to use it for research, problem solving and "
@@ -3109,7 +3103,6 @@ def build_report():
         "A total of 61 survey respondents indicated that they used one of the Public Generative AI "
         "tools during the trial and answered questions about how they used it, how often, and how "
         "much time they believed it saved them.", section_intro))
-    story.append(visual_gap())
 
     # Tool comparison
     story.append(Paragraph("ChatGPT had the widest reach; Claude had the strongest value signals", h3))
@@ -3139,7 +3132,6 @@ def build_report():
     ))
     story.append(tight_gap())
     story.append(figure_label("Public AI Tool Usage and Usefulness by Tool"))
-    story.append(para_gap())
 
     # Task types
     story.append(CondPageBreak(320))
@@ -3170,7 +3162,6 @@ def build_report():
         "<b>Planning and meeting preparation:</b> M365 Copilot was substantially higher than "
         "Copilot Chat and the public tools, suggesting integration with email, SharePoint "
         "and meetings remains a clear M365 advantage."))
-    story.append(after_note_gap())
 
     story.append(CondPageBreak(220))
     story.append(Paragraph("Most staff want to continue using the Public Generative AI", h3))
@@ -3273,7 +3264,6 @@ def build_report():
         body))
 
     # Other segment variation
-    story.append(para_gap())
     story.append(KeepTogether([
         Paragraph("Executive level employees got more value from the tools than APS staff", h3),
         tight_gap(),
@@ -3341,7 +3331,6 @@ def build_report():
         figure_label("Copilot Ratings by Organisational Group"),
         source_note("Note: Jobs and Skills Australia was excluded because of low sample size."),
     ]))
-    story.append(tight_gap())
 
     # 2.6 Barriers
     story.append(CondPageBreak(260))
@@ -3448,7 +3437,6 @@ def build_report():
         "information for use with AI and that future risk mitigation may benefit more from clarifying "
         "boundary cases and strengthening user judgement than from further restricting access or "
         "expanding technical controls alone.", body))
-    story.append(para_gap())
 
     story.append(Paragraph("Comfort shaped data-sharing behaviour when using public AI tools", h3))
     story.append(Paragraph(
@@ -3462,7 +3450,6 @@ def build_report():
     story.append(ComfortDataHandlingPanel(width))
     story.append(tight_gap())
     story.append(figure_label("Data Sharing Behaviour by Comfort with Public AI Tools"))
-    story.append(after_figure_label_gap())
     story.append(Paragraph("Safety communications were rated effective by most survey respondents", h3))
     story.append(tight_gap())
     story.append(ValueSignalsPanel(width, [

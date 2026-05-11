@@ -82,6 +82,11 @@ OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "Outputs")
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, "DEWR_Public_AI_B.pdf")
 COVER_LOCKUP_PATH = os.path.join(os.path.dirname(__file__), "assets", "dewr_cover_lockup_white.png")
 TABLE_HEADER_RULE_GAP = 4
+COPILOT_TIME_SAVINGS_NOTE_PAGE = 5
+COPILOT_TIME_SAVINGS_FOOTER_NOTES = [
+    "Note: The DTA reported these as task-level approximations, rather than a single overall average daily gain, the comparison is best interpreted as directional context rather than a direct benchmark.",
+    "APSC 2025, APS Remuneration Data 31 December 2024, median non-SES total remuneration.",
+]
 
 
 def text_bottom_y(baseline_y, font_name, font_size):
@@ -254,7 +259,7 @@ class CalloutBox(Flowable):
         self,
         text,
         width,
-        bg_color=DEWR_NAVY,
+        bg_color=DEWR_DARK_GREY,
         text_color=white,
         font_size=VISUAL_TEXT.callout_text,
         padding=PANEL.padding_callout,
@@ -417,7 +422,7 @@ class ValueSignalsPanel(Flowable):
         self.items = items
         self.title = title
         self.primary_count = len(items) if primary_count is None else primary_count
-        self._height = 95 if title else 80
+        self._height = 88 if title else 74
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -439,7 +444,7 @@ class ValueSignalsPanel(Flowable):
             c.drawString(pad, h - 20, self.title)
 
         col_w = (w - 2 * pad) / len(self.items)
-        value_y = h - (37 if not self.title else 50)
+        value_y = h - (34 if not self.title else 46)
         label_top_y = value_y - 10.5
         for i, (value, label) in enumerate(self.items):
             x = pad + i * col_w
@@ -460,8 +465,8 @@ class ValueSignalsPanel(Flowable):
 
 
 class CalloutSignalsPanel(Flowable):
-    """Green takeaway callout with embedded KPI evidence strip."""
-    def __init__(self, text, width, items, primary_count=None, bg_color=DEWR_DARK_GREEN, note=None):
+    """Graphite takeaway callout with embedded KPI evidence strip."""
+    def __init__(self, text, width, items, primary_count=None, bg_color=DEWR_DARK_GREY, note=None):
         Flowable.__init__(self)
         self.text = text
         self.box_width = width
@@ -730,7 +735,7 @@ class M365ValueReachExhibit(Flowable):
         for col_w in col_ws[:-1]:
             col_x.append(col_x[-1] + col_w)
 
-        headers = ["M365 COPILOT", "COPILOT CHAT", "VALUE UPLIFT", "LICENCE REACH"]
+        headers = ["M365 COPILOT", "COPILOT CHAT", "M365 VALUE", "M365 LICENCE"]
 
         y = h - 8
         label_style = visual_style(
@@ -757,7 +762,7 @@ class M365ValueReachExhibit(Flowable):
             header_y = table_top - 18
             c.setFillColor(DEWR_DARK_GREY)
             c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header_small)
-            c.drawString(pad, header_y, "SEGMENT")
+            c.drawString(pad, header_y, section_title if not self.show_section_titles else "SEGMENT")
             for idx, header in enumerate(headers, start=1):
                 cx = col_x[idx] + col_ws[idx] / 2
                 c.drawCentredString(cx, header_y, header)
@@ -850,7 +855,7 @@ class EvidenceMatrixPanel(Flowable):
             self.header_h = TABLE_SPEC.matrix_header_height if len(rows) > 1 else TABLE_SPEC.matrix_header_height_single
         else:
             self.header_h = 34.0
-        self._height = self.header_h + self.row_h * len(rows) + 10
+        self._height = self.header_h + self.row_h * len(rows) + 6
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -946,11 +951,11 @@ class ContinuationDemandPanel(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 118
+        self._height = 106
         self.tools = [
             ("Claude", 63, DEWR_DARK_GREEN),
             ("ChatGPT", 54, DEWR_DARK_GREY),
-            ("Gemini", 43, DEWR_GREY),
+            ("Gemini", 43, DEWR_MUTED_GREY),
         ]
 
     def wrap(self, availWidth, availHeight):
@@ -966,54 +971,36 @@ class ContinuationDemandPanel(Flowable):
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
-        chart_x = pad + 26
-        chart_right = w - pad
-        label_w = 62
-        plot_x0 = chart_x + label_w + 28
-        plot_x1 = chart_right - 128
-        min_value = 40
+        chart_top = h - 29
+        label_x = pad
+        bar_x = pad + 96
+        bar_w = w - bar_x - pad - 142
+        value_x = bar_x + bar_w + 12
+        gap_x = value_x + 36
+        bar_h = 9
+        row_gap = 25
         max_value = 70
-        row_gap = 30
-        top_y = h - 37
-        points = []
+        leader_value = self.tools[0][1]
 
-        c.setStrokeColor(DEWR_SOFT_LINE)
-        c.setLineWidth(LINES.hairline)
         for idx, (tool, value, color) in enumerate(self.tools):
-            y = top_y - idx * row_gap
-            value_x = plot_x0 + (value - min_value) / (max_value - min_value) * (plot_x1 - plot_x0)
-            points.append((value_x, y, value, color))
-            c.line(plot_x0, y, plot_x1, y)
+            y = chart_top - idx * row_gap
+            filled_w = bar_w * value / max_value
+
             c.setFillColor(DEWR_DARK_GREY)
             c.setFont(FONT_BOLD if idx == 0 else FONT_REGULAR, VISUAL_TEXT.table_label)
-            c.drawString(chart_x, y - 3, tool)
+            c.drawString(label_x, y - 3, tool)
 
-        c.setStrokeColor(DEWR_DARK_GREEN)
-        c.setLineWidth(1.15)
-        for idx in range(len(points) - 1):
-            x0, y0, _, _ = points[idx]
-            x1, y1, _, _ = points[idx + 1]
-            c.line(x0, y0, x1, y1)
+            c.setFillColor(color)
+            c.rect(bar_x, y - bar_h / 2, filled_w, bar_h, fill=1, stroke=0)
 
-        for idx, (x, y, value, color) in enumerate(points):
             c.setFillColor(color if idx == 0 else DEWR_DARK_GREY)
-            c.circle(x, y, 2.7, fill=1, stroke=0)
             c.setFont(FONT_BOLD, VISUAL_TEXT.table_value)
-            c.drawString(x + 6, y - 3, f"{value}%")
+            c.drawString(value_x, y - 4, f"{value}%")
 
-        delta_x = chart_right - 88
-        label_x = chart_right - 50
-        c.setStrokeColor(DEWR_DARK_GREY)
-        c.setFillColor(DEWR_DARK_GREY)
-        c.setLineWidth(LINES.fine)
-        c.setFont(FONT_BOLD, VISUAL_TEXT.table_label)
-        for idx, delta in enumerate(["-9 pp", "-11 pp"]):
-            y0 = points[idx][1] - 6
-            y1 = points[idx + 1][1] + 6
-            c.line(delta_x, y0, delta_x, y1)
-            c.line(delta_x - 2.8, y1 + 4.2, delta_x, y1)
-            c.line(delta_x + 2.8, y1 + 4.2, delta_x, y1)
-            c.drawRightString(label_x, (points[idx][1] + points[idx + 1][1]) / 2 - 3, delta)
+            if idx:
+                c.setFillColor(DEWR_TEXT_GREY)
+                c.setFont(FONT_BOLD, VISUAL_TEXT.note)
+                c.drawString(gap_x, y - 3, f"-{leader_value - value} pp vs Claude")
 
         c.restoreState()
 
@@ -1023,7 +1010,7 @@ class MarginalValuePanel(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 132
+        self._height = 122
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -1091,7 +1078,7 @@ class TwoEvidenceCardsPanel(Flowable):
         Flowable.__init__(self)
         self.box_width = width
         self.cards = cards
-        self._height = 112
+        self._height = 104
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -1126,18 +1113,18 @@ class TwoEvidenceCardsPanel(Flowable):
 
             c.setFillColor(DEWR_DARK_GREY)
             c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header_small)
-            c.drawCentredString(x + card_w / 2, h - 21, card["metric"].upper())
+            c.drawCentredString(x + card_w / 2, h - 18, card["metric"].upper())
             c.setStrokeColor(DEWR_LIGHT_GREY)
             c.setLineWidth(LINES.fine)
-            c.line(x + PANEL.divider_inset, h - 34, x + card_w - PANEL.divider_inset, h - 34)
+            c.line(x + PANEL.divider_inset, h - 30, x + card_w - PANEL.divider_inset, h - 30)
 
             c.setFillColor(DEWR_DARK_GREEN)
             c.setFont(FONT_BOLD, VISUAL_TEXT.kpi_value)
-            c.drawCentredString(x + card_w / 2, h - 63, card["value"])
+            c.drawCentredString(x + card_w / 2, h - 56, card["value"])
 
             label = Paragraph(card["label"], label_style)
             label.wrap(card_w - 34, 24)
-            label.drawOn(c, x + 17, h - 88)
+            label.drawOn(c, x + 17, h - 80)
 
             vs = Paragraph(card["comparison"], vs_style)
             vs.wrap(card_w - 34, 18)
@@ -1192,7 +1179,7 @@ class PublicAIUsefulnessVisual(Flowable):
     def __init__(self, width=None):
         Flowable.__init__(self)
         self.box_width = width
-        self.box_height = 104
+        self.box_height = 94
 
     def wrap(self, availWidth, availHeight):
         if self.box_width is None:
@@ -1242,7 +1229,7 @@ class PublicAIUsefulnessVisual(Flowable):
         c.line(divider_x, 10, divider_x, h - 10)
 
         def draw_group(x, title, rows):
-            title_y = h - 16
+            title_y = h - 14
             label_w = 50
             bar_x = x + label_w + 10
             value_gap = 6
@@ -1263,7 +1250,7 @@ class PublicAIUsefulnessVisual(Flowable):
             title_para.drawOn(c, x, title_y - 12)
 
             for i, (label, value, display_value, color) in enumerate(rows):
-                y = title_y - 36 - i * 22
+                y = title_y - 32 - i * 21
                 c.setFillColor(DEWR_DARK_GREY)
                 c.setFont(FONT_REGULAR, VISUAL_TEXT.card_body)
                 c.drawString(x, y + 2, label)
@@ -1298,7 +1285,7 @@ class PriorExperienceComparisonPanel(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 104
+        self._height = 96
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -1310,7 +1297,7 @@ class PriorExperienceComparisonPanel(Flowable):
         w = self.box_width
         h = self._height
         pad = PANEL.padding
-        inner_top = h - 16
+        inner_top = h - 14
         col_w = (w - 2 * pad) / 3
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
@@ -1319,7 +1306,7 @@ class PriorExperienceComparisonPanel(Flowable):
         c.setLineWidth(LINES.fine)
         for i in (1, 2):
             x = pad + i * col_w
-            c.line(x, 16, x, inner_top)
+            c.line(x, 14, x, inner_top)
 
         columns = [
             ("Experienced or highly experienced", "91%", "reported at some or significant added value over Copilot", DEWR_DARK_GREEN),
@@ -1337,13 +1324,13 @@ class PriorExperienceComparisonPanel(Flowable):
             cx = x + col_w / 2
             c.setFillColor(DEWR_DARK_GREY)
             c.setFont(FONT_BOLD, VISUAL_TEXT.chart_tick)
-            c.drawCentredString(cx, h - 24, name)
+            c.drawCentredString(cx, h - 21, name)
             c.setFillColor(color)
             c.setFont(FONT_BOLD, VISUAL_TEXT.kpi_value)
-            c.drawCentredString(cx, h - 56, value)
+            c.drawCentredString(cx, h - 51, value)
             p = Paragraph(label, label_style)
             _, label_h = p.wrap(col_w - 24, 22)
-            p.drawOn(c, x + 12, 27 - label_h / 2)
+            p.drawOn(c, x + 12, 25 - label_h / 2)
         c.restoreState()
 
 
@@ -1463,7 +1450,7 @@ class PublicToolTaskProfilePanel(Flowable):
         ]
         self.max_value = 100
         self.row_h = CHART_LAYOUT.row_height
-        self._height = 216
+        self._height = 214
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -1481,10 +1468,10 @@ class PublicToolTaskProfilePanel(Flowable):
         label_w = w * CHART_LAYOUT.label_width_ratio
         axis_x = pad + label_w
         axis_w = w - axis_x - pad
-        head_y = h - 20
-        tick_y = h - 42
-        top_y = h - 49
-        bottom_y = top_y - self.row_h * (len(self.rows) - 1) - 8
+        head_y = h - 18
+        tick_y = h - 36
+        top_y = h - 43
+        bottom_y = top_y - self.row_h * (len(self.rows) - 1) - 6
 
         c.setFillColor(DEWR_DARK_GREY)
         c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header_small)
@@ -1499,14 +1486,14 @@ class PublicToolTaskProfilePanel(Flowable):
             text_x = legend_x - text_w
             marker_x = text_x - marker_gap
             c.setFillColor(color)
-            c.circle(marker_x, h - 18, CHART_LAYOUT.legend_marker_radius, fill=1, stroke=0)
+            c.circle(marker_x, h - 16, CHART_LAYOUT.legend_marker_radius, fill=1, stroke=0)
             c.setFillColor(DEWR_DARK_GREY)
-            c.drawString(text_x, h - 21, name)
+            c.drawString(text_x, h - 19, name)
             legend_x = marker_x - item_gap
 
         c.setStrokeColor(DEWR_LIGHT_GREY)
         c.setLineWidth(LINES.fine)
-        c.line(pad, h - 28, w - pad, h - 28)
+        c.line(pad, h - 25, w - pad, h - 25)
 
         c.setFont(FONT_REGULAR, VISUAL_TEXT.chart_tick)
         c.setFillColor(DEWR_GREY)
@@ -1594,7 +1581,7 @@ class AllToolTaskProfilePanel(Flowable):
         ]
         self.max_value = 100
         self.row_h = CHART_LAYOUT.row_height
-        self._height = 246
+        self._height = 214
 
     def wrap(self, availWidth, availHeight):
         self.box_width = availWidth
@@ -1612,10 +1599,10 @@ class AllToolTaskProfilePanel(Flowable):
         label_w = w * CHART_LAYOUT.label_width_ratio
         axis_x = pad + label_w
         axis_w = w - axis_x - pad
-        head_y = h - 20
-        tick_y = h - 42
-        top_y = h - 49
-        bottom_y = top_y - self.row_h * (len(self.rows) - 1) - 8
+        head_y = h - 18
+        tick_y = h - 36
+        top_y = h - 43
+        bottom_y = top_y - self.row_h * (len(self.rows) - 1) - 6
 
         c.setFillColor(DEWR_DARK_GREY)
         c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header_small)
@@ -1630,14 +1617,14 @@ class AllToolTaskProfilePanel(Flowable):
             text_x = legend_x - text_w
             marker_x = text_x - marker_gap
             c.setFillColor(color)
-            c.circle(marker_x, h - 18, CHART_LAYOUT.legend_marker_radius_compact, fill=1, stroke=0)
+            c.circle(marker_x, h - 16, CHART_LAYOUT.legend_marker_radius_compact, fill=1, stroke=0)
             c.setFillColor(DEWR_DARK_GREY)
-            c.drawString(text_x, h - 21, name)
+            c.drawString(text_x, h - 19, name)
             legend_x = marker_x - item_gap
 
         c.setStrokeColor(DEWR_LIGHT_GREY)
         c.setLineWidth(LINES.fine)
-        c.line(pad, h - 28, w - pad, h - 28)
+        c.line(pad, h - 25, w - pad, h - 25)
 
         c.setFont(FONT_REGULAR, VISUAL_TEXT.chart_tick)
         c.setFillColor(DEWR_GREY)
@@ -1706,7 +1693,7 @@ class SafeguardPrioritiesPanel(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 138
+        self._height = 128
         self.items = [
             ("Information classification boundaries", "Users described uncertainty about what information was appropriate to enter."),
             ("Output validation", "Users pointed to the need to check outputs before relying on them."),
@@ -1728,17 +1715,17 @@ class SafeguardPrioritiesPanel(Flowable):
 
         c.setFillColor(DEWR_DARK_GREY)
         c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header)
-        c.drawString(pad, h - 22, "PRACTICAL JUDGEMENT BOUNDARIES")
+        c.drawString(pad, h - 19, "PRACTICAL JUDGEMENT BOUNDARIES")
         c.setStrokeColor(DEWR_LIGHT_GREY)
         c.setLineWidth(LINES.fine)
-        c.line(pad, h - 36, w - pad, h - 36)
+        c.line(pad, h - 32, w - pad, h - 32)
 
         col_w = (w - 2 * pad) / 3
         for i, (title, text) in enumerate(self.items):
             x = pad + i * col_w
             if i:
                 c.setStrokeColor(DEWR_LIGHT_GREY)
-                c.line(x, 18, x, h - 46)
+                c.line(x, 16, x, h - 42)
 
             title_p = Paragraph(title, visual_style(
                 "safeguard_title",
@@ -1746,14 +1733,14 @@ class SafeguardPrioritiesPanel(Flowable):
                 textColor=DEWR_DARK_GREY,
             ))
             title_p.wrap(col_w - 22, 28)
-            title_p.drawOn(c, x + 10, h - 72)
+            title_p.drawOn(c, x + 10, h - 66)
             p = Paragraph(text, visual_style(
                 "safeguard_text",
                 "safeguard_body",
                 textColor=DEWR_DARK_GREY,
             ))
             p.wrap(col_w - 22, 42)
-            p.drawOn(c, x + 10, h - 116)
+            p.drawOn(c, x + 10, h - 108)
         c.restoreState()
 
 
@@ -1762,7 +1749,7 @@ class UncertaintyAreasPanel(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 140
+        self._height = 130
         self.items = [
             ("Information boundaries",
              "Uncertainty about what information was appropriate to enter, including unclassified but sensitive material."),
@@ -1787,20 +1774,20 @@ class UncertaintyAreasPanel(Flowable):
 
         c.setFillColor(DEWR_DARK_GREY)
         c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header_small)
-        c.drawString(pad, h - 22, "THEMES OF UNCERTAINTY IN OPEN-TEXT RESPONSES")
+        c.drawString(pad, h - 19, "THEMES OF UNCERTAINTY IN OPEN-TEXT RESPONSES")
         c.setStrokeColor(DEWR_LIGHT_GREY)
         c.setLineWidth(LINES.fine)
-        c.line(pad, h - 36, w - pad, h - 36)
+        c.line(pad, h - 32, w - pad, h - 32)
 
         col_w = (w - 2 * pad) / 3
-        title_top = h - 58
-        body_top = h - 88
-        bottom_y = 16
+        title_top = h - 52
+        body_top = h - 80
+        bottom_y = 14
         for i, (title, text) in enumerate(self.items):
             x = pad + i * col_w
             if i:
                 c.setStrokeColor(DEWR_LIGHT_GREY)
-                c.line(x, bottom_y, x, h - 48)
+                c.line(x, bottom_y, x, h - 42)
 
             title_p = Paragraph(title, visual_style(
                 "uncertainty_title",
@@ -1825,7 +1812,7 @@ class SafeguardModelPanel(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 126
+        self._height = 116
         self.items = [
             ("Guide", "Clear rules and examples for what can be entered."),
             ("Remind", "Point-of-use splash screens to reinforce boundaries."),
@@ -1848,28 +1835,28 @@ class SafeguardModelPanel(Flowable):
 
         c.setFillColor(DEWR_DARK_GREY)
         c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header)
-        c.drawString(pad, h - 22, "SAFEGUARD OPERATING MODEL")
+        c.drawString(pad, h - 19, "SAFEGUARD OPERATING MODEL")
         c.setStrokeColor(DEWR_LIGHT_GREY)
         c.setLineWidth(LINES.fine)
-        c.line(pad, h - 36, w - pad, h - 36)
+        c.line(pad, h - 32, w - pad, h - 32)
 
         col_w = (w - 2 * pad) / 4
         for i, (title, text) in enumerate(self.items):
             x = pad + i * col_w
             if i:
                 c.setStrokeColor(DEWR_LIGHT_GREY)
-                c.line(x, 18, x, h - 46)
+                c.line(x, 16, x, h - 42)
 
             c.setFillColor(DEWR_DARK_GREEN if i < 2 else DEWR_DARK_GREY)
             c.setFont(FONT_BOLD, VISUAL_TEXT.callout_text)
-            c.drawString(x + 9, h - 60, title)
+            c.drawString(x + 9, h - 54, title)
             p = Paragraph(text, visual_style(
                 "safeguard_model_text",
                 "model_body",
                 textColor=DEWR_DARK_GREY,
             ))
             p.wrap(col_w - 20, 42)
-            p.drawOn(c, x + 9, h - 102)
+            p.drawOn(c, x + 9, h - 94)
         c.restoreState()
 
 
@@ -1878,7 +1865,7 @@ class ConcernClusterMap(Flowable):
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
-        self._height = 158
+        self._height = 144
         self.clusters = [
             ("COMMON PRACTICAL CONCERNS", [
                 (3, "Tool access, integration and cost (17)"),
@@ -1912,17 +1899,17 @@ class ConcernClusterMap(Flowable):
             if cluster_idx:
                 c.setStrokeColor(DEWR_LIGHT_GREY)
                 c.setLineWidth(LINES.fine)
-                c.line(x - cluster_gap / 2, 18, x - cluster_gap / 2, h - 18)
+                c.line(x - cluster_gap / 2, 16, x - cluster_gap / 2, h - 16)
 
             c.setFillColor(DEWR_DARK_GREY)
             c.setFont(FONT_BOLD, VISUAL_TEXT.panel_header_small)
-            c.drawString(x, h - 24, title)
+            c.drawString(x, h - 20, title)
             c.setStrokeColor(DEWR_LIGHT_GREY)
-            c.line(x, h - 38, x + cluster_w, h - 38)
+            c.line(x, h - 33, x + cluster_w, h - 33)
 
-            row_y = h - 62
+            row_y = h - 56
             for row_idx, (dot_count, label) in enumerate(rows):
-                y = row_y - row_idx * 28
+                y = row_y - row_idx * 25
                 dot_center_y = y + 4
                 for dot_idx in range(3):
                     c.setFillColor(DEWR_DARK_GREEN if dot_idx < dot_count and cluster_idx == 0 else
@@ -2209,8 +2196,8 @@ class TaskFootprintExhibit(Flowable):
             c.circle(m365_x, y, CHART_LAYOUT.dot_radius_highlight if highlight else CHART_LAYOUT.dot_radius_compact, fill=1, stroke=0)
 
             c.setFont(FONT_BOLD, VISUAL_TEXT.chart_value_label_compact)
-            chat_text = marked_value(f"{chat:.1f}%", f"{old_chat:.1f}%")
-            m365_text = marked_value(f"{m365:.1f}%", f"{old_m365:.1f}%")
+            chat_text = marked_value(f"{chat:.0f}%", f"{old_chat:.0f}%")
+            m365_text = marked_value(f"{m365:.0f}%", f"{old_m365:.0f}%")
             chat_w = c.stringWidth(chat_text, FONT_BOLD, VISUAL_TEXT.chart_value_label_compact)
             m365_w = c.stringWidth(m365_text, FONT_BOLD, VISUAL_TEXT.chart_value_label_compact)
 
@@ -2289,8 +2276,8 @@ class KeyFindingPillarCard(Flowable):
     def _build_paras(self):
         text_color = white
 
-        title_fs = 12.5
-        title_ld = 15.0
+        title_fs = 14.5
+        title_ld = 17.0
         self._title_para = Paragraph(self.title_text, ParagraphStyle(
             "PillarTitle",
             fontName=FONT_BOLD,
@@ -2301,8 +2288,8 @@ class KeyFindingPillarCard(Flowable):
             spaceAfter=0,
         ))
 
-        bullet_fs = 8.8
-        bullet_ld = 11.6
+        bullet_fs = 8.25
+        bullet_ld = 10.45
         self._bullet_paras = []
         for b in self.bullet_texts:
             is_numbered = re.match(r"^\d+\.", b)
@@ -2327,16 +2314,18 @@ class KeyFindingPillarCard(Flowable):
 
         num_size = self._NUM_SIZE_HERO
         self._num_h = num_size + 6
+        title_x_offset = 42
 
-        _, th = self._title_para.wrap(cw, 10000)
-        total = self._num_h + th + 6
+        _, th = self._title_para.wrap(cw - title_x_offset, 10000)
+        header_h = max(self._num_h, th)
+        total = header_h + 8
 
         for bp in self._bullet_paras:
             _, bh = bp.wrap(cw, 10000)
-            total += bh + 3.5
+            total += bh + 2.4
 
-        pad_top = 16
-        pad_bottom = 16
+        pad_top = 12
+        pad_bottom = 12
         self._height = total + pad_top + pad_bottom
         self.width = self.card_width
         self.height = self._height
@@ -2358,26 +2347,27 @@ class KeyFindingPillarCard(Flowable):
 
         content_x = self._content_x()
         cw = self._content_width()
-        pad_top = 16
+        pad_top = 12
         y = h - pad_top
 
         num_size = self._NUM_SIZE_HERO
-        num_color = HexColor("#8AAE6A")
+        title_x_offset = 42
+        num_color = DEWR_DARK_GREEN
         c.setFillColor(num_color)
         c.setFillAlpha(0.45)
         c.setFont(FONT_BOLD, num_size)
         c.drawString(content_x, y - num_size + 2, self.num_str)
         c.setFillAlpha(1.0)
-        y -= self._num_h
 
-        _, th = self._title_para.wrap(cw, 10000)
-        self._title_para.drawOn(c, content_x, y - th)
-        y -= th + 6
+        _, th = self._title_para.wrap(cw - title_x_offset, 10000)
+        title_y = y - (self._num_h + th) / 2 + 2
+        self._title_para.drawOn(c, content_x + title_x_offset, title_y)
+        y -= max(self._num_h, th) + 8
 
         for bp in self._bullet_paras:
             _, bh = bp.wrap(cw, 10000)
             bp.drawOn(c, content_x, y - bh)
-            y -= bh + 3.5
+            y -= bh + 2.4
 
         c.restoreState()
 
@@ -2405,6 +2395,24 @@ def header_footer(canvas, doc):
                       "Department of Employment and Workplace Relations")
     canvas.drawRightString(A4[0] - doc.rightMargin, PAGE_CHROME.footer_text_y,
                            f"Page {doc.page}")
+
+    if doc.page == COPILOT_TIME_SAVINGS_NOTE_PAGE:
+        note_style = ParagraphStyle(
+            "FooterSourceNote",
+            fontName=FONT_REGULAR,
+            fontSize=6.2,
+            leading=7.2,
+            textColor=DEWR_TEXT_GREY,
+            spaceBefore=0,
+            spaceAfter=0,
+        )
+        note_width = A4[0] - doc.leftMargin - doc.rightMargin
+        y = PAGE_CHROME.footer_line_y + 15
+        for note_text in reversed(COPILOT_TIME_SAVINGS_FOOTER_NOTES):
+            note = Paragraph(note_text, note_style)
+            _, note_h = note.wrap(note_width, 24)
+            note.drawOn(canvas, doc.leftMargin, y)
+            y += note_h + 2
     canvas.restoreState()
 
 
@@ -2579,7 +2587,7 @@ def build_report():
     def limitation_bullet(text):
         return Paragraph(f"<bullet>&bull;</bullet> {text}", limitation_bullet_style)
 
-    def callout(text, color=DEWR_DARK_GREEN):
+    def callout(text, color=DEWR_DARK_GREY):
         return CalloutBox(text, width, bg_color=color)
 
     def key_finding(text, color=DEWR_GREEN):
@@ -3022,6 +3030,7 @@ def build_report():
     # ==============================
     # COVER PAGE
     # ==============================
+    story.append(visual_gap())
     story.append(PageBreak())
 
     # ==============================
@@ -3033,6 +3042,7 @@ def build_report():
     story.append(Paragraph("Contents", evaluation_h1))
     story.append(after_note_gap())
     story.append(toc)
+    story.append(para_gap())
     story.append(PageBreak())
 
     # ==============================
@@ -3089,6 +3099,39 @@ def build_report():
     ]))
     story.append(executive_quote)
     story.append(section_gap())
+
+    summary_finding_style = ParagraphStyle(
+        "StructuredSummaryFinding",
+        parent=body,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    summary_number_style = ParagraphStyle(
+        "StructuredSummaryFindingNumber",
+        parent=body,
+        fontName=FONT_BOLD,
+        fontSize=body.fontSize,
+        leading=body.leading,
+        textColor=DEWR_DARK_GREY,
+    )
+
+    def structured_finding(number, label, text):
+        finding_table = Table(
+            [[
+                Paragraph(str(number), summary_number_style),
+                Paragraph(f"<b>{label}:</b> {text}", summary_finding_style),
+            ]],
+            colWidths=[20, width - 20],
+            hAlign="LEFT",
+        )
+        finding_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        return finding_table
 
     story.append(toc_heading("Preface", copilot_section_header, 1))
     story.append(Paragraph(
@@ -3148,58 +3191,23 @@ def build_report():
     story.append(after_note_gap())
     story.append(pillar_card(
         1,
-        "Copilot already saves us time: 3 to 6 hours per week",
+        "Microsoft Copilot",
         [
-            f"M365 Copilot users saved nearly 6 hours per week, or {red_markup(marked_value('68', '69', ' minutes per day'))}, equating to a time saving of about 15%.",
-            "Copilot Chat users saved just under 3 hours per week, or about 34 minutes per day, equating to a time saving of about 8%.",
-            "An M365 license becomes a net positive within two weeks after factoring in its cost, all else equal.",
-            "All versions of Copilot were used for summarising, editing and revision, and drafting.",
-            "M365 Copilot was more commonly used for complex knowledge work such as research, problem solving and ideation, and for planning or meeting preparation.",
+            "<b>Copilot already saves us 3 to 6 hours per week.</b> M365 Copilot users saved nearly 6 hours a week (about 15%), almost double the 2.8 hours a week (about 8%) reported by Copilot Chat users. As a result, an M365 license pays for itself within the first two weeks.",
+            "<b>All versions of Copilot were used for summarising, editing and revision, and drafting.</b> Compared to Copilot Chat, M365 Copilot was used more for complex knowledge work such as research, problem solving and ideation (67.7% of users, compared to 43.6% of Chat users), and for planning or meeting preparation (35.5% of users compared to 12.8% of Chat).",
+            "<b>M365 Copilot is associated with higher reported productivity across both workforce segments and organisational groups.</b> Corporate and Enabling, Employment and Workforce, and Skills groups reported the largest relative uplifts (2.5x, 2.2x, and 1.9x respectively), while Workplace Relations reported only slightly higher productivity over Copilot Chat (1.2x). Across the department, EL users reported M365 Copilot time savings at 2.7x the rate of Copilot Chat users, compared with 1.7x for APS users.",
         ],
         is_hero=True,
     ))
-    story.append(Spacer(1, 9))
+    story.append(Spacer(1, 5))
     story.append(pillar_card(
         2,
-        "Right AI for right task: Public Generative AI tools used for knowledge work",
+        "Public Generative AI tools: ChatGPT, Gemini, and Claude",
         [
-            "Usage of the public tools was clustered around general knowledge-work tasks rather than specialised or administrative workflows.",
-            "Research, summarising, editing and drafting were the dominant use cases across the trial.",
-            "72% of respondents indicated that they wanted to continue using at least one of the Public Generative AI tools after the end of the trial.",
-            "Some users expressed a strong preference for continued access to the tools. This was most prominently seen for experienced or highly experienced AI users, 55% of whom strongly agreed that they wanted continued access, while users with more limited experience were less emphatic.",
-        ],
-    ))
-    story.append(Spacer(1, 9))
-    story.append(pillar_card(
-        3,
-        "The public tools have limitations: integration and usage limits, with experienced AI users most affected",
-        [
-            "92% of users reported some limitation when using the public tools.",
-            "49% of survey respondents reported lack of integration with corporate tools as a barrier. This was consistent across all three tools.",
-            "41% of survey respondents reported the prompt or request limits offered by the free tools as a barrier.",
-            "Almost 60% of experienced and highly experienced AI users reported hitting usage caps as an issue, compared to about 30% of less experienced users.",
-        ],
-    ))
-    story.append(Spacer(1, 9))
-    story.append(pillar_card(
-        4,
-        "ChatGPT was the most used Public Generative AI tool, but Claude was more useful for our staff",
-        [
-            "ChatGPT was the entry point, with most participants (92%) using it during the trial.",
-            "About two-thirds of those who used ChatGPT rated it as at least moderately useful and under one third rated it as very or extremely useful.",
-            "In comparison, only about two thirds of participants used Claude, but 7 in 10 rated it as at least moderately useful and almost half rated it as very or extremely useful.",
-        ],
-    ))
-    story.append(Spacer(1, 9))
-    story.append(pillar_card(
-        5,
-        "Comfort and concerns using the public tools",
-        [
-            "1. Three quarters of respondents were comfortable with the public tools, but a quarter were not comfortable using them.",
-            f"2. Comfort was higher among respondents who rated both the introductory email and security splash screens as effective: 82.5% were comfortable or very comfortable using public tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective.",
-            "3. Respondents who were comfortable using the tools seem to have been more likely to utilise more risky features. While both comfortable and uncomfortable users were just as likely to paste information into the tools, users who were comfortable using them were almost twice as likely (48% vs 27%) to upload documents.",
-            "4. The results suggest that future risk mitigation may benefit more from clarifying boundary cases and strengthening user judgement than from further restricting access or expanding technical controls alone.",
-            f"5. Ethical considerations were more likely to be reported ({red_markup(marked_value('12%', '11%'))} of respondents) compared to security concerns (3%).",
+            "<b>Public generative AI tools were used mainly for core knowledge-work tasks, especially research, summarising, editing and drafting.</b> Claude had the strongest research profile, with 73.2% of Claude users using it for research, problem solving or ideation, while ChatGPT and Gemini were used more broadly across common writing and information tasks. Public generative AI was used much less for planning and meeting preparation, highlighting a key limitation of the public tools for tasks that depend on integration with department systems.",
+            "<b>ChatGPT had the widest uptake (92% of users), but Claude showed the strongest usefulness signal.</b> Claude was rated at least very useful by 46.3% of users (compared to 29.7% for Gemini and 28.6% for ChatGPT), and was the most requested tool to continue after the trial (63%, compared to 54% and 43% for ChatGPT and Gemini). Overall, demand for continued access to at least one of the public tools was strong (72%), with experienced or highly experienced AI users more emphatic than less experienced users. This suggests staff benefit from access to different tools for different types of work, rather than there being a single best option.",
+            "<b>Most users (92%) reported at least one limitation from the public tools.</b> The main barriers were a lack of integration with department systems (49%) and the usage limits of the free tools (41%). Usage caps were especially common among experienced users (60%), indicating that the free versions were most likely to constrain staff who had the capability to identify higher-value use cases and use the tools more productively.",
+            "<b>Most respondents (75%) were comfortable using the tools, but key concerns were raised.</b> Ethical considerations were more commonly reported (12% of respondents) than security concerns (3% of respondents). Users who were more comfortable with the tools were more likely to use more 'risky' features such as uploading files (48%) than users who were not comfortable (27%). Education and training play a key role in building comfort. Key concerns related to uncertainty about what information could be entered and how to validate results. Similarly, staff who rated the introductory guidance and splash screens as effective were more likely to be comfortable (82.5%) than those who did not (60%). Future risk mitigation may benefit more from clearer guidance, clarifying boundary cases and strengthening user judgement than from expanding technical controls alone.",
         ],
     ))
     story.append(PageBreak())
@@ -3255,12 +3263,7 @@ def build_report():
         "additional 2.9 hours per week compared to Copilot Chat, a license starts to deliver "
         "productivity increases by the end of the second week.",
         s1_body))
-    story.append(sp(8))
-    story.append(source_note(
-        "Note: The DTA reported these as task-level approximations, rather than a single overall average daily gain, the comparison is best interpreted as directional context rather than a direct benchmark."))
-    story.append(source_note(
-        "APSC 2025, APS Remuneration Data 31 December 2024, median non-SES total remuneration."))
-    story.append(visual_gap())
+    story.append(PageBreak())
 
     # Usefulness and frequency
     story.append(KeepTogether([
@@ -3271,7 +3274,7 @@ def build_report():
         visual_spacer(),
         CopilotEngagementDeltaPanel(width),
         tight_gap(),
-        figure_label("Copilot Frequency of Use and Usefulness ratings by Version"),
+        figure_label("Copilot engagement and value signals by version"),
     ]))
     story.append(visual_gap())
 
@@ -3279,14 +3282,19 @@ def build_report():
     story.append(KeepTogether([
         Paragraph("Copilot usage and value across the department", s1_h3),
         Paragraph(
-            "M365 Copilot is associated with higher reported productivity value across both workforce segments and organisational groups, but current licence reach remains limited. EL and APS users both reported greater weekly time savings with M365 Copilot than with Copilot Chat, with the uplift strongest among EL users.",
+            "M365 Copilot is associated with higher reported productivity across both workforce segments and organisational groups. EL and APS users both reported greater weekly time savings with M365 Copilot than with Copilot Chat, with the productivity improvements strongest for EL users who reported M365 Copilot time savings at 2.7x the rate of Copilot Chat users.",
+            s1_body),
+        Paragraph(
+            "A similar pattern appears across organisational groups, where Corporate and Enabling, Employment and Workforce, and Skills groups reported the largest relative uplifts (2.5x, 2.2x, and 1.9x respectively), while Workplace Relations reported only slightly higher productivity over Copilot Chat (1.2x).",
             s1_body),
         visual_spacer(),
     ]))
+    story.append(Paragraph("By employee classification", body_bold))
+    story.append(sp(4))
     story.append(M365ValueReachExhibit(
         width,
         [
-            ("WORKFORCE SEGMENT", [
+            ("CLASSIFICATION LEVEL", [
                 ("EL level", "5.4 hrs", "2.0 hrs", "2.7x", "10%", True),
                 ("APS level", "6.0 hrs", "3.5 hrs", "1.7x", "5%", False),
             ]),
@@ -3295,11 +3303,12 @@ def build_report():
     ))
     story.append(tight_gap())
     story.append(figure_label("M365 Copilot Time Savings and Licence Reach by APS Level"))
-    story.append(after_figure_label_gap())
-    story.append(Paragraph(
-        "A similar pattern appears across organisational groups, where Corporate and Enabling and Employment and Workforce reported the largest relative uplift. This builds on the earlier finding that M365 Copilot users report deeper engagement and higher perceived usefulness: the tool appears to generate more value where it is available, but the low licence reach means those benefits are currently concentrated among a small share of staff.",
-        s1_body))
+    story.append(source_note(
+        "Note: M365 Value = The relative time savings reported for M365 license holders compared to Copilot Chat users. "
+        "M365 licence = The proportion of each group who have an M365 license."))
     story.append(PageBreak())
+    story.append(Paragraph("By Group", body_bold))
+    story.append(sp(4))
     story.append(M365ValueReachExhibit(
         width,
         [
@@ -3319,7 +3328,7 @@ def build_report():
         "M365 licence = proportion of each group with an M365 licence. "
         "Jobs and Skills Australia was excluded because of low sample size."))
     story.append(after_figure_label_gap())
-    story.append(visual_gap())
+    story.append(sp(6))
 
     # Task types
     story.append(KeepTogether([
@@ -3344,13 +3353,13 @@ def build_report():
     ]))
     story.append(section_gap())
 
-    # Section 2: Public Gen AI
+    # Section 2: Public AI
     story.append(PageBreak())
     story.append(toc_heading("Public Gen AI uptake and use", copilot_section_header, 1))
     story.append(callout(
-        "Public Gen AI uptake was broad and demand for continued access was strong: ChatGPT "
-        "provided reach, Claude showed the strongest usefulness signal, and use clustered around "
-        "general knowledge-work tasks."))
+        "Public AI provided additional value beyond Copilot, especially for broad knowledge work, "
+        "but the benefit was capability-dependent and constrained by lack of integration, free-tool "
+        "limits, and user uncertainty at practical risk boundaries."))
     story.append(ValueSignalsPanel(width, [
         ("80%", "Rated at least one public tool useful"),
         ("72%", "Said public tools add value beyond Copilot"),
@@ -3407,6 +3416,11 @@ def build_report():
     story.append(tight_gap())
     story.append(figure_label("Task Footprint across Public AI Tools and Copilot Versions"))
     story.append(after_figure_label_gap())
+    story.append(Paragraph(
+        "Tool use profiles varied by task. Claude had the strongest research profile, with "
+        "73.2% of Claude users using it for research, problem solving or generating ideas. "
+        "This placed it ahead of M365 Copilot and significantly ahead of Copilot Chat.",
+        body))
     story.append(bullet(
         "<b>Coding or data work:</b> Claude was notably higher at 26.8%, compared with "
         "13.5% for Gemini and 10.7% for ChatGPT, suggesting a stronger specialist-use profile."))
@@ -3442,8 +3456,6 @@ def build_report():
         "Claude was the most requested tool to continue after the trial, and interest in "
         "continuing Claude was higher among M365 Copilot users than Copilot Chat users."))
     story.append(PageBreak())
-
-    # Productivity from Public Gen AI
     story.append(toc_heading("Productivity from Public Gen AI", copilot_section_header, 1))
     story.append(callout(
         "Public Gen AI productivity gains were real but capability-dependent: value was strongest "
@@ -3459,26 +3471,33 @@ def build_report():
         "of Copilot. Furthermore, while they reported value from the Public Gen AI tools, they used them at a "
         "comparable rate to Copilot Chat users.",
         body))
+    story.append(Paragraph(
+        "This suggests that M365 Copilot users, who tend to be more experienced AI users, were better equipped "
+        "to find complementary use cases for the public tools while continuing to use Copilot frequently. In "
+        "contrast, Copilot Chat users may have been more likely to substitute Copilot for the Public tools.",
+        body))
     story.append(visual_spacer())
     story.append(KeepTogether([
         access_evidence_table(),
         tight_gap(),
         figure_label("Public AI and Copilot Ratings"),
+        source_note(
+            "Note: High Experience = Highly Experienced or Experienced; "
+            "Low Experience = Some or No or Basic Experience."
+        ),
     ]))
-    story.append(source_note(
-        "Note: High Experience = Highly Experienced or Experienced; "
-        "Low Experience = Some or No or Basic Experience."
-    ))
     story.append(para_gap())
 
     # Prior experience variation
-    story.append(CondPageBreak(155))
+    story.append(CondPageBreak(250))
     story.append(KeepTogether([
         Paragraph("Experienced users gained more value", h3),
         Paragraph(
             "Prior Gen AI experience was also associated with stronger reported outcomes. Experienced and highly "
             "experienced respondents were more likely to report significant added value from public tools than "
-            "respondents with lower levels of prior Gen AI experience.", body),
+            "respondents with lower levels of prior Gen AI experience. Higher-experience users also reported "
+            "deeper usefulness: 73% rated at least one public tool very or extremely useful, compared with 46% "
+            "some prior Gen AI experience and 39% no/basic prior Gen AI experience.", body),
         visual_spacer(),
         EvidenceMatrixPanel(
             width,
@@ -3500,48 +3519,51 @@ def build_report():
         ),
         tight_gap(),
         figure_label("Prior AI experience was the clearest signal of public-tool value"),
-        after_figure_label_gap(),
-        Paragraph(
-            "They were also more likely to rate at least one public tool better than Copilot on at least one "
-            "comparison dimension (86% vs 69% for both lower-experience groups), such as output quality, time "
-            "savings or responsiveness, and to strongly want continued access (55% vs 31% some prior Gen AI "
-            "experience and 15% no/basic prior Gen AI experience).",
-            body),
-        Paragraph(
-            "This pattern is consistent with experience acting as an enabling factor for value realisation. While "
-            "the results are not causal, they suggest that capability uplift may increase the likelihood that staff "
-            "can identify higher-value use cases and realise more benefits from both enterprise and public AI tools, "
-            "although some of this relationship may also reflect differences in role, task complexity, or pre-existing "
-            "digital capability.",
-            body),
     ]))
+    story.append(after_figure_label_gap())
+    story.append(Paragraph(
+        "They were also more likely to rate at least one public tool better than Copilot on at least one "
+        "comparison dimension, such as output quality, time savings or responsiveness, and to strongly want "
+        "continued access.",
+        body))
+    story.append(Paragraph(
+        "This pattern is consistent with experience acting as an enabling factor for value realisation. While "
+        "the results are not causal, they suggest that capability uplift may increase the likelihood that staff "
+        "can identify higher-value use cases and realise more benefits from both enterprise and public AI tools, "
+        "although some of this relationship may also reflect differences in role, task complexity, or pre-existing "
+        "digital capability.",
+        body))
 
     # Other segment variation
-    story.append(CondPageBreak(265))
-    story.append(Paragraph("Executive level employees got more value from the tools than APS staff", h3))
-    story.append(tight_gap())
-    story.append(Paragraph(
-        "EL users were more likely than APS users to say public tools added value beyond Copilot, "
-        "despite similar usage frequency, while APS users were more likely to rate the public tools "
-        "as at least moderately useful.",
-        body))
+    story.append(para_gap())
+    story.append(KeepTogether([
+        Paragraph("Executive level employees got more value from the tools than APS staff", h3),
+        tight_gap(),
+        Paragraph(
+            "EL users were more likely than APS users to say public tools added value beyond Copilot, "
+            "despite similar usage frequency, while APS users were more likely to rate the public tools "
+            "as at least moderately useful.",
+            body),
+    ]))
     story.append(visual_spacer())
-    story.append(EvidenceMatrixPanel(
-        width,
-        "MEASURE",
-        ["APS level", "EL level"],
-        [
-            ("Added value beyond Copilot", ["66.7%", "78.6%"], 1),
-            ("Public tools used weekly or more", ["51.5%", "53.6%"], 1),
-            ("Public tools rated at least moderately useful", ["87.9%", "71.4%"], 0),
-            ("Copilot rated at least moderately useful", ["84.8%", "75.0%"], 0),
-        ],
-        first_col_ratio=0.58,
-        row_h=28,
-        header_body_gap=6,
-    ))
-    story.append(tight_gap())
-    story.append(figure_label("Public AI and Copilot Ratings by APS Level"))
+    story.append(KeepTogether([
+        EvidenceMatrixPanel(
+            width,
+            "MEASURE",
+            ["APS level", "EL level"],
+            [
+                ("Added value beyond Copilot", ["66.7%", "78.6%"], 1),
+                ("Public tools used weekly or more", ["51.5%", "53.6%"], 1),
+                ("Public tools rated at least moderately useful", ["87.9%", "71.4%"], 0),
+                ("Copilot rated at least moderately useful", ["84.8%", "75.0%"], 0),
+            ],
+            first_col_ratio=0.58,
+            row_h=28,
+            header_body_gap=6,
+        ),
+        tight_gap(),
+        figure_label("Public AI and Copilot Ratings by APS Level"),
+    ]))
     story.append(after_figure_label_gap())
     story.append(Paragraph(
         "This difference may reflect variation in work type across classification levels, including "
@@ -3549,51 +3571,67 @@ def build_report():
         "familiarity with AI tools. Further research is required to disentangle these factors.",
         body))
     story.append(para_gap())
-    story.append(CondPageBreak(300))
-    story.append(Paragraph("Organisational group", mini_heading))
-    story.append(tight_gap())
-    story.append(Paragraph(
-        "Group-level results suggest that Copilot usefulness and perceived added value from Public Gen AI "
-        "were not always aligned. Workplace Relations recorded the strongest added-value result, with "
-        "85.7% saying Public Gen AI provided value beyond Copilot, compared with 78.6% rating Copilot "
-        "as at least moderately useful.", body))
-    story.append(sp(4))
-    story.append(Paragraph(
-        "By contrast, Corporate and Enabling and Employment and Workforce recorded high Copilot "
-        "usefulness but lower added-value results for Public Gen AI. Skill and Training recorded the "
-        "weakest results on both measures, suggesting lower perceived value across both Copilot and "
-        "Public Gen AI rather than a pattern specific to Public Gen AI alone.", body))
-    story.append(visual_spacer())
-    story.append(EvidenceMatrixPanel(
-        width,
-        "GROUP",
-        ["Added value beyond Copilot", "Rated Copilot at least moderately useful"],
-        [
-            ("Corporate and Enabling", ["66.7%", "83.3%"], 1),
-            ("Employment and Workforce", ["73.7%", "84.2%"], 1),
-            ("Skill and Training", ["53.8%", "69.2%"], None),
-            ("Workplace Relations", ["85.7%", "78.6%"], 0),
-        ],
-        first_col_ratio=0.32,
-    ))
-    story.append(tight_gap())
-    story.append(figure_label("Copilot Ratings by Organisational Group"))
-    story.append(sp(8))
-    story.append(source_note(
-        "Note: Jobs and Skills Australia was excluded because of low sample size."))
+    story.append(CondPageBreak(330))
+    story.append(KeepTogether([
+        Paragraph("Organisational group", mini_heading),
+        tight_gap(),
+        Paragraph(
+            "Group-level results suggest that Copilot usefulness and perceived added value from Public Gen AI "
+            "were not always aligned. Workplace Relations recorded the strongest added-value result, with "
+            "85.7% saying Public Gen AI provided value beyond Copilot, compared with 78.6% rating Copilot "
+            "as at least moderately useful.", body),
+        sp(4),
+        Paragraph(
+            "By contrast, Corporate and Enabling and Employment and Workforce recorded high Copilot "
+            "usefulness but lower added-value results for Public Gen AI. Skill and Training recorded the "
+            "weakest results on both measures, suggesting lower perceived value across both Copilot and "
+            "Public Gen AI rather than a pattern specific to Public Gen AI alone.", body),
+        visual_spacer(),
+        EvidenceMatrixPanel(
+            width,
+            "GROUP",
+            ["Added value beyond Copilot", "Rated Copilot at least moderately useful"],
+            [
+                ("Corporate and Enabling", ["66.7%", "83.3%"], 1),
+                ("Employment and Workforce", ["73.7%", "84.2%"], 1),
+                ("Skill and Training", ["53.8%", "69.2%"], None),
+                ("Workplace Relations", ["85.7%", "78.6%"], 0),
+            ],
+            first_col_ratio=0.32,
+        ),
+        tight_gap(),
+        figure_label("Copilot Ratings by Organisational Group"),
+        source_note("Note: Jobs and Skills Australia was excluded because of low sample size."),
+    ]))
     story.append(tight_gap())
 
     # 2.6 Barriers
+    story.append(CondPageBreak(260))
     story.append(Paragraph("Limitations were common and clustered around two broad signals", h3))
     story.append(tight_gap())
     story.append(Paragraph(
         "<b><font color=\"#404246\">92%</font></b> of respondents reported at least one limitation "
         "with at least one public AI tool. Limitations were widespread but concentrated in two "
-        "practical barriers. Lack of integration was the most common issue, reported by 49% of "
-        "respondents and broadly consistent across ChatGPT, Gemini and Claude. Request limits were "
-        "the main access constraint, reported by 41% overall and almost twice as often by experienced "
-        "users as less experienced users.",
+        "practical barriers.",
         body))
+    story.append(Paragraph("Integration was a common barrier", mini_heading))
+    story.append(bullet("49% of survey respondents reported lack of integration as a barrier."))
+    story.append(bullet(
+        "This prevented users from seamlessly working between DEWR systems and the Public Generative AI tools."))
+    story.append(bullet(
+        "Lack of integration was common across all three tools, affecting 48% of ChatGPT users, "
+        "49% of Gemini users and 51% of Claude users."))
+    story.append(Paragraph("Request limits were the main access constraint", mini_heading))
+    story.append(bullet(
+        "41% of survey respondents reported the prompt/request limits offered by the free tools as a barrier."))
+    story.append(bullet("This included instances where a limit was reached and work needed to stop."))
+    story.append(bullet(
+        "Limits were more acute for experienced users, with 59.1% of experienced and highly experienced AI users "
+        "reporting caps as an issue when using the public tools."))
+    story.append(bullet("This compares with only 30.8% of less experienced users reporting this limitation."))
+    story.append(bullet(
+        "Free prompt or request limits were more concentrated in ChatGPT, reported by 36% of ChatGPT users, "
+        "compared with 20% of Claude users and 5% of Gemini users."))
     story.append(visual_spacer())
     story.append(HorizontalBarPanel(width, None, [
         ("Lack of integration with internal systems or Microsoft 365 products", 49),
@@ -3606,14 +3644,13 @@ def build_report():
     story.append(tight_gap())
     story.append(figure_label("Reported Limitations of Public AI Tools"))
 
-    # Section 3: Concerns
-    story.append(PageBreak())
+    # Concerns, risks and safeguards
+    story.append(CondPageBreak(300))
     story.append(toc_heading("Concerns, risks and safeguards", copilot_section_header, 1))
     story.append(callout(
         "Most survey respondents were comfortable and reported security concerns were rare. Survey "
         "results suggest safety communications and splash screens supported cautious use, while "
-        "data-handling risks were mainly visible through copy and paste behaviour and user judgement.",
-        DEWR_DARK_GREEN))
+        "data-handling risks were mainly visible through copy and paste behaviour and user judgement."))
     story.append(ValueSignalsPanel(width, [
         ("75%", "Comfortable or very comfortable using public tools"),
         ("25%", "Uncomfortable using public tools"),
@@ -3623,23 +3660,34 @@ def build_report():
     story.append(sp(9))
     story.append(Paragraph(
         "All respondents were asked about any concerns they have with the public tools. They were "
-        "also provided an opportunity to opt out of using the tools if they had concerns. "
+        "also provided an opportunity to opt out of using the tools if they had concerns.",
+        section_intro))
+    story.append(Paragraph(
         "The results suggest that future risk mitigation may benefit more from clarifying boundary "
         "cases and strengthening user judgement than from further restricting access or expanding "
         "technical controls alone.",
         section_intro))
     story.append(para_gap())
 
-    story.append(Paragraph("Most respondents were comfortable with the security and confidentiality of the public tools", h3))
+    story.append(Paragraph(
+        "Most respondents were comfortable with the security and confidentiality of the public tools, although some concerns were raised and the efficacy of guidance seems to have influenced perceptions",
+        h3))
     story.append(Paragraph(
         "Survey results showed relatively high comfort using public tools. Three-quarters of "
         "respondents were comfortable or very comfortable using public tools, while one-quarter were "
-        f"uncomfortable. Reported concerns were lower: {red_markup(marked_value('12%', '11%'))} reported ethical concerns and 3% reported "
-        "specific security concerns.", body))
+        "uncomfortable.",
+        body))
+    story.append(Paragraph(
+        "Some staff reported concerns with the tools, although two-thirds of those who reported "
+        "concerns were still comfortable using the tools. Of all respondents:",
+        body))
+    story.append(bullet(f"{red_markup(marked_value('12%', '11%'))} reported ethical concerns; and"))
+    story.append(bullet("3% reported specific security concerns."))
     story.append(Paragraph(
         "Comfort was also higher among respondents who rated both the introductory email and splash "
         "screens effective: 82.5% of this group were comfortable or very comfortable using public "
-        f"tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective.", body))
+        f"tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective. "
+        "This may suggest that the efficacy of guidance material influences staff comfort using the tools.", body))
 
     story.append(Paragraph("Respondent comments showed uncertainty at practical boundaries", h3))
     story.append(Paragraph(
@@ -3659,21 +3707,25 @@ def build_report():
     story.append(sp(4))
     story.append(Paragraph(
         "These suggest that further support is required to effectively triage and manage data and "
-        "information for use with AI.", body))
-    story.append(PageBreak())
+        "information for use with AI and that future risk mitigation may benefit more from clarifying "
+        "boundary cases and strengthening user judgement than from further restricting access or "
+        "expanding technical controls alone.", body))
+    story.append(para_gap())
 
-    story.append(Paragraph("Comfort shape data sharing behaviour when using public AI tools.", h3))
+    story.append(Paragraph("Comfort shaped data-sharing behaviour when using public AI tools", h3))
     story.append(Paragraph(
-        "Users were more likely to copy and paste information into public tools than upload documents, "
-        "but comfort level shaped the type of data shared. Comfortable users were similarly likely to "
-        "copy and paste information, but were more likely to upload documents, suggesting lower comfort "
-        "may shift users toward more cautious sharing behaviours.", body))
+        "Users were advised not to upload classified information and Data Loss Protection was established "
+        "to ensure classified information could not be uploaded. All users were more likely to copy and "
+        "paste information into the public tools than to upload documents. All users were similarly likely "
+        "to copy and paste information, but comfortable users were more likely to upload documents. This "
+        "suggests that improved comfort with the tools increases willingness to utilise features that might "
+        "otherwise be deemed risky.", body))
     story.append(visual_spacer())
     story.append(ComfortDataHandlingPanel(width))
     story.append(tight_gap())
     story.append(figure_label("Data Sharing Behaviour by Comfort with Public AI Tools"))
     story.append(after_figure_label_gap())
-    story.append(Paragraph("Safety communications were rated effectively by most survey responders", h3))
+    story.append(Paragraph("Safety communications were rated effective by most survey respondents", h3))
     story.append(tight_gap())
     story.append(ValueSignalsPanel(width, [
         ("74%", "Rated introductory emails at least moderately effective"),
@@ -3682,16 +3734,14 @@ def build_report():
     ], primary_count=1))
     story.append(visual_spacer())
     story.append(Paragraph(
-        "The trial used a mix of guidance and technical safeguards to support safe use of public Gen AI "
-        "tools. Staff received instructions on appropriate use, including upload rules, while introductory "
-        "emails, splash screens and upload blockers were used to communicate risks and reduce the likelihood "
-        "of classified information being uploaded.", body))
+        "Most respondents rated the safety communications positively: the introductory email was rated "
+        "moderately or highly effective by 74% of respondents, while splash screens were rated moderately "
+        "or highly effective by 72%. Two-thirds of respondents rated both the email and splash screens "
+        "effective.",
+        body))
     story.append(Paragraph(
-        "Most respondents rated the trial's communication supports as effective. Introductory emails "
-        "(74%) and splash screens (72%) were both widely rated as moderately or highly effective, "
-        "and 67% of respondents rated both channels as effective. Upload blockers were less visible, "
-        "with 16.7% of respondents noticing or rating them as effective, and no respondent rating "
-        "them ineffective.",
+        "Upload blockers were less visible in the survey results: 16.7% of respondents noticed or rated "
+        "upload blockers as effective, and no respondent rated upload blockers ineffective.",
         body))
     story.append(para_gap())
 

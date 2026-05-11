@@ -631,7 +631,7 @@ def build_paragraph_styles(fonts=None):
             fontSize=8.8,
             leading=11,
             textColor=TEXT,
-            spaceBefore=10,
+            spaceBefore=16,
             spaceAfter=4,
         ),
         "metric_context": ParagraphStyle(

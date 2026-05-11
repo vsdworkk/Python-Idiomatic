@@ -193,10 +193,10 @@ def draw_delta_dot_plot(
     legend_y = height - 19
     low_w = c.stringWidth(low_label, FONT_REGULAR, VISUAL_TEXT.chart_legend_compact)
     high_w = c.stringWidth(high_label, FONT_REGULAR, VISUAL_TEXT.chart_legend_compact)
-    low_text_x = width - pad - low_w
-    low_marker_x = low_text_x - 7
-    high_text_x = low_marker_x - 18 - high_w
+    high_text_x = width - pad - high_w
     high_marker_x = high_text_x - 7
+    low_text_x = high_marker_x - 18 - low_w
+    low_marker_x = low_text_x - 7
     c.setFillColor(DEWR_DARK_GREEN)
     c.circle(high_marker_x, legend_y + 2, 3, fill=1, stroke=0)
     c.setFillColor(DEWR_DARK_GREY)
@@ -821,7 +821,7 @@ class CopilotEngagementDeltaPanel(Flowable):
         h = self._height
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
-        draw_delta_dot_plot(c, w, h, self.rows, "M365", "Copilot Chat", delta_position="midline")
+        draw_delta_dot_plot(c, w, h, self.rows, "M365 Copilot", "Copilot Chat", delta_position="right")
         c.restoreState()
 
 
@@ -2138,10 +2138,10 @@ class TaskFootprintExhibit(Flowable):
         m365_w = c.stringWidth(m365_label, FONT_REGULAR, VISUAL_TEXT.chart_legend)
         chat_w = c.stringWidth(chat_label, FONT_REGULAR, VISUAL_TEXT.chart_legend)
         legend_right = w - pad
-        chat_text_x = legend_right - chat_w
-        chat_marker_x = chat_text_x - marker_gap
-        m365_text_x = chat_marker_x - item_gap - m365_w
+        m365_text_x = legend_right - m365_w
         m365_marker_x = m365_text_x - marker_gap
+        chat_text_x = m365_marker_x - item_gap - chat_w
+        chat_marker_x = chat_text_x - marker_gap
         c.setFillColor(DEWR_DARK_GREEN)
         c.circle(m365_marker_x, h - 18, CHART_LAYOUT.legend_marker_radius, fill=1, stroke=0)
         c.setFillColor(DEWR_DARK_GREY)
@@ -2461,6 +2461,10 @@ def cover_page(canvas, doc):
     canvas.setFillColor(cover_green)
     canvas.setFont(FONT_REGULAR, COVER.date_size)
     canvas.drawString(left, page_h - COVER.date_y_offset, "May 2026")
+
+    canvas.setFillColor(white)
+    canvas.setFont(FONT_BOLD, 10)
+    canvas.drawString(left, COVER.bottom_bar_height + 24, "Analytics Centre of Excellence")
     canvas.restoreState()
 
 
@@ -3081,7 +3085,6 @@ def build_report():
         tight_gap(),
         figure_label("Task footprint by Copilot version"),
     ]))
-    story.append(section_gap())
 
     # Section 2: Public AI
     story.append(PageBreak())
@@ -3195,13 +3198,14 @@ def build_report():
         "Overall, both M365 Copilot and Copilot Chat users rated the Public Generative AI tools as useful at "
         "comparable levels. M365 license holders, who were more likely to rate Copilot as useful and to use it "
         "more frequently, were also more likely to report getting more value out of the Public Gen AI tools on top "
-        "of Copilot. Furthermore, while they reported value from the Public Gen AI tools, they used them at a "
-        "comparable rate to Copilot Chat users.",
+        "of Copilot.",
         body))
     story.append(Paragraph(
-        "This suggests that M365 Copilot users, who tend to be more experienced AI users, were better equipped "
-        "to find complementary use cases for the public tools while continuing to use Copilot frequently. In "
-        "contrast, Copilot Chat users may have been more likely to substitute Copilot for the Public tools.",
+        "Furthermore, while they reported value from the Public Gen AI tools, they used them at a comparable rate "
+        "to Copilot Chat users. This suggests that M365 Copilot users, who tend to be more experienced AI users, "
+        "were better equipped to find complementary use cases for the public tools while continuing to use Copilot "
+        "frequently. In contrast, Copilot Chat users may have been more likely to substitute Copilot for the "
+        "Public tools.",
         body))
     story.append(visual_spacer())
     story.append(KeepTogether([
@@ -3270,9 +3274,7 @@ def build_report():
             "despite similar usage frequency, while APS users were more likely to rate the public tools "
             "as at least moderately useful.",
             body),
-    ]))
-    story.append(visual_spacer())
-    story.append(KeepTogether([
+        visual_spacer(),
         EvidenceMatrixPanel(
             width,
             "MEASURE",
@@ -3385,34 +3387,28 @@ def build_report():
     story.append(sp(9))
     story.append(Paragraph(
         "All respondents were asked about any concerns they have with the public tools. They were "
-        "also provided an opportunity to opt out of using the tools if they had concerns.",
-        section_intro))
-    story.append(Paragraph(
-        "The results suggest that future risk mitigation may benefit more from clarifying boundary "
+        "also provided an opportunity to opt out of using the tools if they had concerns. The "
+        "results suggest that future risk mitigation may benefit more from clarifying boundary "
         "cases and strengthening user judgement than from further restricting access or expanding "
         "technical controls alone.",
         section_intro))
     story.append(para_gap())
 
     story.append(Paragraph(
-        "Most respondents were comfortable with the security and confidentiality of the public tools, although some concerns were raised and the efficacy of guidance seems to have influenced perceptions",
+        "Most respondents were comfortable with the tools, though concerns were raised and guidance quality shaped perceptions.",
         h3))
     story.append(Paragraph(
-        "Survey results showed relatively high comfort using public tools. Three-quarters of "
-        "respondents were comfortable or very comfortable using public tools, while one-quarter were "
-        "uncomfortable.",
+        "75% of respondents were comfortable or very comfortable using the public tools; 25% "
+        "were uncomfortable. Concerns and comfort were not mutually exclusive, two-thirds of "
+        "respondents who raised concerns were still comfortable using the tools. Of all "
+        "respondents:",
         body))
+    story.append(bullet(f"{red_markup(marked_value('12%', '11%'))} raised ethical concerns"))
+    story.append(bullet("3% raised specific security concerns"))
     story.append(Paragraph(
-        "Some staff reported concerns with the tools, although two-thirds of those who reported "
-        "concerns were still comfortable using the tools. Of all respondents:",
-        body))
-    story.append(bullet(f"{red_markup(marked_value('12%', '11%'))} reported ethical concerns; and"))
-    story.append(bullet("3% reported specific security concerns."))
-    story.append(Paragraph(
-        "Comfort was also higher among respondents who rated both the introductory email and splash "
-        "screens effective: 82.5% of this group were comfortable or very comfortable using public "
-        f"tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective. "
-        "This may suggest that the efficacy of guidance material influences staff comfort using the tools.", body))
+        "Guidance quality appears to influence how staff feel about using the tools : 82.5% of "
+        "respondents who rated both the introductory email and splash screens effective were "
+        f"comfortable using the tools, compared with {red_markup(marked_value('60%', '61.9%'))} of those who did not.", body))
 
     story.append(Paragraph("Respondent comments showed uncertainty at practical boundaries", h3))
     story.append(Paragraph(
@@ -3439,11 +3435,10 @@ def build_report():
     story.append(Paragraph("Comfort shaped data-sharing behaviour when using public AI tools", h3))
     story.append(Paragraph(
         "Users were advised not to upload classified information and Data Loss Protection was established "
-        "to ensure classified information could not be uploaded. All users were more likely to copy and "
-        "paste information into the public tools than to upload documents. All users were similarly likely "
-        "to copy and paste information, but comfortable users were more likely to upload documents. This "
-        "suggests that improved comfort with the tools increases willingness to utilise features that might "
-        "otherwise be deemed risky.", body))
+        "to ensure classified information could not be uploaded. All users preferred copy-and-paste to "
+        "document upload, and copy-and-paste rates were similar across comfort levels. Document upload, "
+        "however, varied with comfort: comfortable users uploaded more than uncomfortable users, "
+        "suggesting comfort increases willingness to use features that feel riskier.", body))
     story.append(visual_spacer())
     story.append(ComfortDataHandlingPanel(width))
     story.append(tight_gap())

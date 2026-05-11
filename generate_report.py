@@ -2256,6 +2256,132 @@ class KeyFindingBar(Flowable):
         c.restoreState()
 
 
+class KeyFindingPillarCard(Flowable):
+    """A premium numbered key-finding card with left accent bar and large number."""
+
+    _ACCENT_W = 4.0
+    _NUM_SIZE_HERO = 28
+    _NUM_SIZE_STD = 24
+    _PAD_LEFT = 16
+    _PAD_RIGHT = 16
+
+    def __init__(self, number, title, bullets, card_width,
+                 is_hero=False, accent_color=None, numbered_bullets=False):
+        Flowable.__init__(self)
+        self.num_str = f"{number:02d}"
+        self.title_text = title
+        self.bullet_texts = bullets
+        self.card_width = card_width
+        self.is_hero = is_hero
+        self.accent_color = accent_color or DEWR_GREEN
+        self.numbered_bullets = numbered_bullets
+        self._height = 0
+        self._title_para = None
+        self._bullet_paras = []
+        self._num_h = 0
+
+    def _content_x(self):
+        return self._ACCENT_W + self._PAD_LEFT
+
+    def _content_width(self):
+        return self.card_width - self._content_x() - self._PAD_RIGHT
+
+    def _build_paras(self):
+        text_color = white
+
+        title_fs = 12.5
+        title_ld = 15.0
+        self._title_para = Paragraph(self.title_text, ParagraphStyle(
+            "PillarTitle",
+            fontName=FONT_BOLD,
+            fontSize=title_fs,
+            leading=title_ld,
+            textColor=text_color,
+            spaceBefore=0,
+            spaceAfter=0,
+        ))
+
+        bullet_fs = 8.8
+        bullet_ld = 11.6
+        self._bullet_paras = []
+        for b in self.bullet_texts:
+            is_numbered = re.match(r"^\d+\.", b)
+            prefix = "" if is_numbered else "<bullet>&bull;</bullet> "
+            style = ParagraphStyle(
+                "PillarBullet",
+                fontName=FONT_REGULAR,
+                fontSize=bullet_fs,
+                leading=bullet_ld,
+                textColor=text_color,
+                leftIndent=0 if is_numbered else 8,
+                firstLineIndent=0 if is_numbered else -8,
+                spaceBefore=0,
+                spaceAfter=0,
+            )
+            self._bullet_paras.append(Paragraph(f"{prefix}{b}", style))
+
+    def wrap(self, availWidth, availHeight):
+        self.card_width = availWidth
+        self._build_paras()
+        cw = self._content_width()
+
+        num_size = self._NUM_SIZE_HERO
+        self._num_h = num_size + 6
+
+        _, th = self._title_para.wrap(cw, 10000)
+        total = self._num_h + th + 6
+
+        for bp in self._bullet_paras:
+            _, bh = bp.wrap(cw, 10000)
+            total += bh + 3.5
+
+        pad_top = 16
+        pad_bottom = 16
+        self._height = total + pad_top + pad_bottom
+        self.width = self.card_width
+        self.height = self._height
+        return (self.card_width, self._height)
+
+    def draw(self):
+        c = self.canv
+        w = self.card_width
+        h = self._height
+        ax = self._ACCENT_W
+
+        c.saveState()
+
+        c.setFillColor(DEWR_DARK_GREY)
+        c.rect(ax, 0, w - ax, h, fill=1, stroke=0)
+
+        c.setFillColor(self.accent_color)
+        c.rect(0, 0, ax, h, fill=1, stroke=0)
+
+        content_x = self._content_x()
+        cw = self._content_width()
+        pad_top = 16
+        y = h - pad_top
+
+        num_size = self._NUM_SIZE_HERO
+        num_color = HexColor("#8AAE6A")
+        c.setFillColor(num_color)
+        c.setFillAlpha(0.45)
+        c.setFont(FONT_BOLD, num_size)
+        c.drawString(content_x, y - num_size + 2, self.num_str)
+        c.setFillAlpha(1.0)
+        y -= self._num_h
+
+        _, th = self._title_para.wrap(cw, 10000)
+        self._title_para.drawOn(c, content_x, y - th)
+        y -= th + 6
+
+        for bp in self._bullet_paras:
+            _, bh = bp.wrap(cw, 10000)
+            bp.drawOn(c, content_x, y - bh)
+            y -= bh + 3.5
+
+        c.restoreState()
+
+
 def header_footer(canvas, doc):
     canvas.saveState()
     # Header line
@@ -2770,6 +2896,12 @@ def build_report():
         table.setStyle(style)
         return table
 
+    def pillar_card(number, title, bullets, is_hero=False):
+        return KeyFindingPillarCard(
+            number, title, bullets, width,
+            is_hero=is_hero, accent_color=DEWR_GREEN,
+        )
+
     def risk_metric(value, label):
         return [
             Paragraph(value, key_findings_card_metric),
@@ -3014,69 +3146,62 @@ def build_report():
     # ==============================
     story.append(toc_heading("Key findings", copilot_section_header, 1))
     story.append(after_note_gap())
-    story.append(key_findings_card_grid([
-        key_findings_card(
-            "",
-            "Copilot already saves us time: 3 to 6 hours per week",
-            "",
-            [
-                f"M365 Copilot users saved nearly 6 hours per week, or {red_markup(marked_value('68', '69', ' minutes per day'))}, equating to a time saving of about 15%.",
-                "Copilot Chat users saved just under 3 hours per week, or about 34 minutes per day, equating to a time saving of about 8%.",
-                "An M365 license becomes a net positive within two weeks after factoring in its cost, all else equal.",
-                "All versions of Copilot were used for summarising, editing and revision, and drafting.",
-                "M365 Copilot was more commonly used for complex knowledge work such as research, problem solving and ideation, and for planning or meeting preparation.",
-            ],
-            feature=True,
-        ),
-        key_findings_card(
-            "",
-            "Right AI for right task: Public Generative AI tools used for knowledge work",
-            "",
-            [
-                "Usage of the public tools was clustered around general knowledge-work tasks rather than specialised or administrative workflows.",
-                "Research, summarising, editing and drafting were the dominant use cases across the trial.",
-                "72% of respondents indicated that they wanted to continue using at least one of the Public Generative AI tools after the end of the trial.",
-                "Some users expressed a strong preference for continued access to the tools. This was most prominently seen for experienced or highly experienced AI users, 55% of whom strongly agreed that they wanted continued access, while users with more limited experience were less emphatic.",
-            ],
-        ),
-        key_findings_card(
-            "",
-            "The public tools have limitations: integration and usage limits, with experienced AI users most affected",
-            "",
-            [
-                "92% of users reported some limitation when using the public tools.",
-                "49% of survey respondents reported lack of integration with corporate tools as a barrier. This was consistent across all three tools.",
-                "41% of survey respondents reported the prompt or request limits offered by the free tools as a barrier.",
-                "Almost 60% of experienced and highly experienced AI users reported hitting usage caps as an issue, compared to about 30% of less experienced users.",
-            ],
-        ),
-        key_findings_card(
-            "",
-            "ChatGPT was the most used Public Generative AI tool, but Claude was more useful for our staff",
-            "",
-            [
-                "ChatGPT was the entry point, with most participants (92%) using it during the trial.",
-                "About two-thirds of those who used ChatGPT rated it as at least moderately useful and under one third rated it as very or extremely useful.",
-                "In comparison, only about two thirds of participants used Claude, but 7 in 10 rated it as at least moderately useful and almost half rated it as very or extremely useful.",
-            ],
-        ),
-        key_findings_card(
-            "",
-            "Comfort and concerns using the public tools",
-            "",
-            [
-                "1. Three quarters of respondents were comfortable with the public tools, but a quarter were not comfortable using them.",
-                f"2. Comfort was higher among respondents who rated both the introductory email and security splash screens as effective: 82.5% were comfortable or very comfortable using public tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective.",
-                "3. Respondents who were comfortable using the tools seem to have been more likely to utilise more risky features. While both comfortable and uncomfortable users were just as likely to paste information into the tools, users who were comfortable using them were almost twice as likely (48% vs 27%) to upload documents.",
-                "4. The results suggest that future risk mitigation may benefit more from clarifying boundary cases and strengthening user judgement than from further restricting access or expanding technical controls alone.",
-                f"5. Ethical considerations were more likely to be reported ({red_markup(marked_value('12%', '11%'))} of respondents) compared to security concerns (3%).",
-            ],
-        ),
-    ]))
-    story.append(PageBreak())
-
-    story.append(Paragraph("Decision implications", h3))
-    story.append(key_findings_action_cards())
+    story.append(pillar_card(
+        1,
+        "Copilot already saves us time: 3 to 6 hours per week",
+        [
+            f"M365 Copilot users saved nearly 6 hours per week, or {red_markup(marked_value('68', '69', ' minutes per day'))}, equating to a time saving of about 15%.",
+            "Copilot Chat users saved just under 3 hours per week, or about 34 minutes per day, equating to a time saving of about 8%.",
+            "An M365 license becomes a net positive within two weeks after factoring in its cost, all else equal.",
+            "All versions of Copilot were used for summarising, editing and revision, and drafting.",
+            "M365 Copilot was more commonly used for complex knowledge work such as research, problem solving and ideation, and for planning or meeting preparation.",
+        ],
+        is_hero=True,
+    ))
+    story.append(Spacer(1, 9))
+    story.append(pillar_card(
+        2,
+        "Right AI for right task: Public Generative AI tools used for knowledge work",
+        [
+            "Usage of the public tools was clustered around general knowledge-work tasks rather than specialised or administrative workflows.",
+            "Research, summarising, editing and drafting were the dominant use cases across the trial.",
+            "72% of respondents indicated that they wanted to continue using at least one of the Public Generative AI tools after the end of the trial.",
+            "Some users expressed a strong preference for continued access to the tools. This was most prominently seen for experienced or highly experienced AI users, 55% of whom strongly agreed that they wanted continued access, while users with more limited experience were less emphatic.",
+        ],
+    ))
+    story.append(Spacer(1, 9))
+    story.append(pillar_card(
+        3,
+        "The public tools have limitations: integration and usage limits, with experienced AI users most affected",
+        [
+            "92% of users reported some limitation when using the public tools.",
+            "49% of survey respondents reported lack of integration with corporate tools as a barrier. This was consistent across all three tools.",
+            "41% of survey respondents reported the prompt or request limits offered by the free tools as a barrier.",
+            "Almost 60% of experienced and highly experienced AI users reported hitting usage caps as an issue, compared to about 30% of less experienced users.",
+        ],
+    ))
+    story.append(Spacer(1, 9))
+    story.append(pillar_card(
+        4,
+        "ChatGPT was the most used Public Generative AI tool, but Claude was more useful for our staff",
+        [
+            "ChatGPT was the entry point, with most participants (92%) using it during the trial.",
+            "About two-thirds of those who used ChatGPT rated it as at least moderately useful and under one third rated it as very or extremely useful.",
+            "In comparison, only about two thirds of participants used Claude, but 7 in 10 rated it as at least moderately useful and almost half rated it as very or extremely useful.",
+        ],
+    ))
+    story.append(Spacer(1, 9))
+    story.append(pillar_card(
+        5,
+        "Comfort and concerns using the public tools",
+        [
+            "1. Three quarters of respondents were comfortable with the public tools, but a quarter were not comfortable using them.",
+            f"2. Comfort was higher among respondents who rated both the introductory email and security splash screens as effective: 82.5% were comfortable or very comfortable using public tools, compared with {red_markup(marked_value('60.0%', '61.9%'))} among respondents who did not rate both channels effective.",
+            "3. Respondents who were comfortable using the tools seem to have been more likely to utilise more risky features. While both comfortable and uncomfortable users were just as likely to paste information into the tools, users who were comfortable using them were almost twice as likely (48% vs 27%) to upload documents.",
+            "4. The results suggest that future risk mitigation may benefit more from clarifying boundary cases and strengthening user judgement than from further restricting access or expanding technical controls alone.",
+            f"5. Ethical considerations were more likely to be reported ({red_markup(marked_value('12%', '11%'))} of respondents) compared to security concerns (3%).",
+        ],
+    ))
     story.append(PageBreak())
 
     # ==============================

@@ -70,23 +70,30 @@ DEWR_BLUE_OFFICIAL = OCE_BLUE
 
 
 @dataclass(frozen=True)
-class Spacing:
+class Space:
+    # Numeric scale (generic tiers)
     xs: float = 2
     sm: float = 4
     md: float = 8
     lg: float = 12
     xl: float = 20
 
+    # Semantic story-rhythm tokens
+    # (Some of these map to the tiers above; some are bespoke for now
+    # and will be normalized in a later step.)
+    heading_gap: float = 2     # == xs
+    paragraph_gap: float = 8   # == md
+    tight_gap: float = 4       # == sm
+    note_gap: float = 5        # bespoke (to normalize)
+    after_note_gap: float = 10 # bespoke (to normalize)
+    section_gap: float = 14    # bespoke (to normalize)
+    visual_gap: float = 30     # bespoke (to normalize)
 
-@dataclass(frozen=True)
-class StoryRhythmSpec:
-    heading_gap: float = 2
-    paragraph_gap: float = 8
-    tight_gap: float = 4
-    visual_gap: float = 30
-    note_gap: float = 5
-    after_note_gap: float = 10
-    section_gap: float = 14
+
+# Legacy aliases — kept so existing call sites continue working.
+# Both `Spacing()` and `StoryRhythmSpec()` now return the same unified Space.
+Spacing = Space
+StoryRhythmSpec = Space
 
 
 class FlowableSpacingMixin:
@@ -181,12 +188,13 @@ class VisualTextSpec:
     stacked_callout_label_leading: float = 8.6
     table_header: float = 6.5
     table_header_leading: float = 7.5
+    column_header: float = 6.5
+    column_header_leading: float = 7.5
     table_label: float = 7.6
     table_label_leading: float = 8.6
     table_value: float = 9.0
     table_value_leading: float = 10.5
     value_reach_section: float = 8.0
-    value_reach_column_header: float = 6.5
     value_reach_label: float = 7.6
     value_reach_label_leading: float = 8.6
     value_reach_value: float = 9.0
@@ -213,18 +221,40 @@ class VisualTextSpec:
 
 
 @dataclass(frozen=True)
-class PanelSpec:
-    padding: float = 16.0
-    padding_medium: float = 18.0
-    padding_large: float = 20.0
-    padding_xlarge: float = 28.0
-    padding_callout: float = 12.0
-    inner_padding: float = 12.0
-    gutter: float = 10.0
-    title_y_offset: float = 20.0
-    divider_y_offset: float = 36.0
-    divider_inset: float = 16.0
-    section_divider_width: float = 0.5
+class Panel:
+    """Canonical panel / card / table vocabulary.
+
+    Single source of truth for panel inset, table cell padding, column-header
+    heights, gutters and divider weights.
+    """
+
+    # ---- Inset: padding between a panel/card border and its content ----
+    inset_sm: float = 12
+    inset_md: float = 16
+    inset_lg: float = 18
+    inset_xl: float = 20
+    inset_xxl: float = 28
+
+    # ---- Table cells ----
+    cell_pad_x: float = 14
+    cell_pad_x_tight: float = 6
+    cell_pad_y: float = 11
+    cell_pad_y_tight: float = 4
+
+    # ---- Column header row heights ----
+    header_h_compact: float = 28
+    header_h_default: float = 34
+    header_h_tall: float = 48
+
+    # ---- Table body row height ----
+    row_h_matrix: float = 26
+
+    # ---- Gutter: space between adjacent panel elements ----
+    gutter: float = 10
+
+    # ---- Dividers ----
+    divider_inset: float = 16
+    divider_width: float = 0.5
     hairline_width: float = 0.35
 
 
@@ -261,19 +291,6 @@ class ChartLayoutSpec:
     dumbbell_label_width_ratio: float = 0.39
     dumbbell_line_width: float = 0.7
     dumbbell_line_width_highlight: float = 1.2
-
-
-@dataclass(frozen=True)
-class TableSpec:
-    matrix_row_height: float = 26.0
-    matrix_header_height: float = 50.0
-    matrix_header_height_single: float = 50.0
-    access_header_height: float = 28.0
-    access_row_height: float = 31.0
-    cell_padding_x: float = 16.0
-    cell_padding_y: float = 5.0
-    header_rule_gap: float = 4.0
-    section_row_value: float = 8.0
 
 
 @dataclass(frozen=True)
@@ -392,6 +409,7 @@ _VISUAL_STYLE_ROLES = {
     "kpi_caption": ("kpi_caption", "kpi_caption_leading", TEXT_MUTED),
     "chart_label": ("chart_label", "chart_label_leading", TEXT_MUTED),
     "table_header": ("table_header", "table_header_leading", TEXT),
+    "column_header": ("column_header", "column_header_leading", TEXT),
     "table_label": ("table_label", "table_label_leading", TEXT),
     "table_value": ("table_value", "table_value_leading", TEXT),
     "stacked_row_label": ("stacked_row_label", "stacked_row_label_leading", TEXT),
@@ -463,6 +481,11 @@ def make_visual_styles(fonts):
         "table_header": visual_paragraph_style(
             "VisualTableHeader", fonts, "table_header", bold=True
         ),
+        # Canonical column-header style. Same attributes as table_header for
+        # now (so no reflow); table_header retires in a later step.
+        "column_header": visual_paragraph_style(
+            "VisualColumnHeader", fonts, "column_header", bold=True
+        ),
         "table_label": visual_paragraph_style("VisualTableLabel", fonts, "table_label"),
         "table_value": visual_paragraph_style(
             "VisualTableValue", fonts, "table_value", bold=True
@@ -493,26 +516,8 @@ def draw_wrapped_text(canvas, text, style, x, y_top, width, max_height):
     return height
 
 
-def evidence_table_style():
-    table = TableSpec()
-    lines = Lines()
-    return TableStyle(
-        [
-            ("BACKGROUND", (0, 0), (-1, -1), DEWR_OFF_WHITE),
-            ("LINEBELOW", (0, 0), (-1, 0), lines.fine, DEWR_LIGHT_GREY),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("LEFTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
-            ("RIGHTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
-            ("TOPPADDING", (0, 0), (-1, -1), table.cell_padding_y),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), table.cell_padding_y),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), table.header_rule_gap),
-        ]
-    )
-
-
 def access_evidence_table_style():
-    table = TableSpec()
+    panel = Panel()
     lines = Lines()
     return TableStyle(
         [
@@ -522,135 +527,13 @@ def access_evidence_table_style():
             ("ALIGN", (0, 0), (0, 0), "LEFT"),
             ("ALIGN", (1, 1), (-1, -1), "CENTER"),
             ("ALIGN", (0, 0), (0, -1), "LEFT"),
-            ("LEFTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
-            ("RIGHTPADDING", (0, 0), (-1, -1), table.cell_padding_x),
-            ("TOPPADDING", (0, 0), (-1, -1), table.cell_padding_y),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), table.cell_padding_y),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), table.header_rule_gap),
+            ("LEFTPADDING", (0, 0), (-1, -1), panel.cell_pad_x),
+            ("RIGHTPADDING", (0, 0), (-1, -1), panel.cell_pad_x),
+            ("TOPPADDING", (0, 0), (-1, -1), panel.cell_pad_y_tight),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), panel.cell_pad_y_tight),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), panel.cell_pad_y_tight),
         ]
     )
-
-
-def build_key_finding_matrix_exhibit(
-    width,
-    fonts,
-    key_finding_text,
-    title,
-    columns,
-    rows,
-    first_col_ratio=0.42,
-):
-    """Build an integrated key-finding strip plus evidence matrix."""
-    table_spec = TableSpec()
-    lines = Lines()
-    fonts = fonts or FontSpec()
-
-    first_w = width * first_col_ratio
-    col_w = (width - first_w) / len(columns)
-    col_widths = [first_w] + [col_w] * len(columns)
-
-    key_style = ParagraphStyle(
-        "KeyFindingMatrixCallout",
-        fontName=_font(fonts, "bold"),
-        fontSize=10.5,
-        leading=14,
-        textColor=TEXT,
-        leftIndent=0,
-        rightIndent=0,
-        spaceBefore=0,
-        spaceAfter=0,
-    )
-    header_style = visual_paragraph_style(
-        "KeyFindingMatrixHeader",
-        fonts,
-        "table_header",
-        alignment=TA_CENTER,
-        bold=True,
-        text_color=TEXT,
-    )
-    measure_header_style = visual_paragraph_style(
-        "KeyFindingMatrixMeasureHeader",
-        fonts,
-        "table_header",
-        bold=True,
-        text_color=TEXT,
-    )
-    section_style = visual_paragraph_style(
-        "KeyFindingMatrixSection",
-        fonts,
-        "table_header",
-        bold=True,
-        text_color=TEXT,
-    )
-    label_style = visual_paragraph_style(
-        "KeyFindingMatrixLabel",
-        fonts,
-        "table_label",
-        text_color=TEXT,
-    )
-    value_style = visual_paragraph_style(
-        "KeyFindingMatrixValue",
-        fonts,
-        "table_value",
-        alignment=TA_CENTER,
-        bold=True,
-        text_color=TEXT,
-    )
-    highlight_style = visual_paragraph_style(
-        "KeyFindingMatrixValueHighlight",
-        fonts,
-        "table_value",
-        alignment=TA_CENTER,
-        bold=True,
-        text_color=DEWR_DARK_GREEN,
-    )
-
-    data = [[Paragraph(key_finding_text, key_style)] + [""] * len(columns)]
-    data.append([Paragraph(title.upper(), measure_header_style)] + [
-        Paragraph(column.upper(), header_style) for column in columns
-    ])
-
-    style_commands = [
-        ("SPAN", (0, 0), (-1, 0)),
-        ("BACKGROUND", (0, 0), (-1, 0), KEY_FINDING_BACKGROUND),
-        ("LINEBEFORE", (0, 0), (0, 0), 4, DEWR_GREEN),
-        ("BACKGROUND", (0, 1), (-1, -1), DEWR_OFF_WHITE),
-        ("LINEBELOW", (0, 1), (-1, 1), lines.fine, DEWR_LIGHT_GREY),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), table_spec.cell_padding_x),
-        ("RIGHTPADDING", (0, 0), (-1, -1), table_spec.cell_padding_x),
-        ("TOPPADDING", (0, 0), (-1, -1), table_spec.cell_padding_y),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), table_spec.cell_padding_y),
-        ("TOPPADDING", (0, 0), (-1, 0), 12),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-        ("TOPPADDING", (0, 1), (-1, 1), 12),
-        ("BOTTOMPADDING", (0, 1), (-1, 1), table_spec.header_rule_gap),
-        ("ALIGN", (1, 1), (-1, -1), "CENTER"),
-    ]
-
-    for row_idx, (label, values, highlight_idx) in enumerate(rows, start=2):
-        if values is None:
-            data.append([Paragraph(label.upper(), section_style)] + [""] * len(columns))
-            style_commands.extend([
-                ("SPAN", (0, row_idx), (-1, row_idx)),
-                ("BACKGROUND", (0, row_idx), (-1, row_idx), KEY_FINDING_BACKGROUND),
-                ("TOPPADDING", (0, row_idx), (-1, row_idx), 9),
-                ("BOTTOMPADDING", (0, row_idx), (-1, row_idx), 7),
-            ])
-        else:
-            row_values = []
-            for value_idx, value in enumerate(values):
-                highlighted = (
-                    highlight_idx == "all"
-                    or (isinstance(highlight_idx, (list, tuple, set)) and value_idx in highlight_idx)
-                    or value_idx == highlight_idx
-                )
-                row_values.append(Paragraph(value, highlight_style if highlighted else value_style))
-            data.append([Paragraph(label, label_style)] + row_values)
-
-    table = Table(data, colWidths=col_widths, hAlign="LEFT")
-    table.setStyle(TableStyle(style_commands))
-    return KeepTogether([table])
 
 
 def build_paragraph_styles(fonts=None):

@@ -21,11 +21,10 @@ from report_design_system import (
     Lines,
     PageChromeSpec,
     PageSpec,
-    PanelSpec,
+    Panel,
     Radii,
     Spacing,
     StoryRhythmSpec,
-    TableSpec,
     VisualTextSpec,
     BAR_TRACK,
     BAR_TRACK_MUTED_GREEN,
@@ -35,7 +34,6 @@ from report_design_system import (
     FOGGED_GRAPHITE,
     KEY_FINDING_BACKGROUND,
     build_paragraph_styles,
-    build_key_finding_matrix_exhibit,
     draw_wrapped_text,
     draw_panel_background,
     access_evidence_table_style,
@@ -71,10 +69,9 @@ CHART = ChartSpec()
 VISUAL_TEXT = VisualTextSpec()
 VISUAL_STYLES = make_visual_styles(REPORT_FONTS)
 RHYTHM = StoryRhythmSpec()
-PANEL = PanelSpec()
+PANEL_TOKENS = Panel()
 KPI = KpiSpec()
 CHART_LAYOUT = ChartLayoutSpec()
-TABLE_SPEC = TableSpec()
 PAGE_CHROME = PageChromeSpec()
 COVER = CoverSpec()
 
@@ -167,7 +164,7 @@ def draw_delta_dot_plot(
     delta_position="right",
 ):
     """Draw the shared two-series dot/delta plot used across the report."""
-    pad = PANEL.padding
+    pad = PANEL_TOKENS.inset_md
     label_w = width * (0.24 if delta_position == "midline" else 0.33)
     axis_x = pad + label_w
     delta_w = 56 if delta_position == "right" else 0
@@ -262,7 +259,7 @@ class CalloutBox(Flowable):
         bg_color=DEWR_DARK_GREY,
         text_color=white,
         font_size=VISUAL_TEXT.callout_text,
-        padding=PANEL.padding_callout,
+        padding=PANEL_TOKENS.inset_sm,
     ):
         Flowable.__init__(self)
         self.text = text
@@ -433,7 +430,7 @@ class ValueSignalsPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding
+        pad = PANEL_TOKENS.inset_md
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -474,7 +471,7 @@ class CalloutSignalsPanel(Flowable):
         self.primary_count = len(items) if primary_count is None else primary_count
         self.bg_color = bg_color
         self.note = note
-        self.padding = PANEL.padding_callout
+        self.padding = PANEL_TOKENS.inset_sm
         self.card_height = KPI.panel_height + (15 if note else 0)
         self.gap = 0
         self._height = None
@@ -515,7 +512,7 @@ class CalloutSignalsPanel(Flowable):
         card_w = w
         card_h = self.card_height
 
-        inner_pad = PANEL.inner_padding
+        inner_pad = PANEL_TOKENS.inset_sm
         col_w = (card_w - 2 * pad) / len(self.items)
         if self.note:
             c.setFillColor(DEWR_TEXT_GREY)
@@ -560,7 +557,7 @@ class TimeSavingsPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding
+        pad = PANEL_TOKENS.inset_md
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -599,8 +596,8 @@ class M365ValueAndReachTable(Flowable):
         self.section_title = section_title
         self.rows = rows
         self.columns = ["M365 Copilot", "Copilot Chat", "M365 Value", "M365 Licence"]
-        self.row_h = TABLE_SPEC.matrix_row_height + SPACING.xs
-        self.pad = PANEL.padding_medium
+        self.row_h = PANEL_TOKENS.row_h_matrix + SPACING.xs
+        self.pad = PANEL_TOKENS.inset_lg
         self._height = 2 * self.pad + 40 + self.row_h * len(rows)
 
     def wrap(self, availWidth, availHeight):
@@ -642,7 +639,7 @@ class M365ValueAndReachTable(Flowable):
                 cx,
                 header_y,
                 FONT_BOLD,
-                VISUAL_TEXT.value_reach_column_header,
+                VISUAL_TEXT.column_header,
                 DEWR_TEXT_GREY,
                 col_w - 6,
             )
@@ -705,10 +702,10 @@ class M365ValueReachExhibit(Flowable):
         self.box_width = width
         self.sections = sections
         self.show_section_titles = show_section_titles
-        self.pad = PANEL.padding_medium
+        self.pad = PANEL_TOKENS.inset_lg
         self.row_h = 24
         self.section_gap = 24
-        self.header_h = 48 if show_section_titles else 34
+        self.header_h = PANEL_TOKENS.header_h_tall if show_section_titles else PANEL_TOKENS.header_h_default
         total_rows = sum(len(rows) for _, rows in sections)
         self._height = sum(self.header_h + self.row_h * len(rows) + 11 for _, rows in sections) + self.section_gap * (len(sections) - 1) + 10
 
@@ -752,7 +749,7 @@ class M365ValueReachExhibit(Flowable):
             block_bottom = block_top - self.header_h - self.row_h * len(rows) - 11
             if self.show_section_titles:
                 c.setFillColor(DEWR_TEXT_GREY)
-                c.setFont(FONT_BOLD, VISUAL_TEXT.value_reach_column_header)
+                c.setFont(FONT_BOLD, VISUAL_TEXT.column_header)
                 c.drawString(0, block_top - 8, section_title)
 
             table_top = block_top - (14 if self.show_section_titles else 0)
@@ -852,9 +849,9 @@ class EvidenceMatrixPanel(Flowable):
         self.row_h = row_h
         self.header_body_gap = header_body_gap
         if self.title:
-            self.header_h = TABLE_SPEC.matrix_header_height if len(rows) > 1 else TABLE_SPEC.matrix_header_height_single
+            self.header_h = PANEL_TOKENS.header_h_tall
         else:
-            self.header_h = 34.0
+            self.header_h = PANEL_TOKENS.header_h_default
         self._height = self.header_h + self.row_h * len(rows) + 6
 
     def wrap(self, availWidth, availHeight):
@@ -866,7 +863,7 @@ class EvidenceMatrixPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding_medium
+        pad = PANEL_TOKENS.inset_lg
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -967,7 +964,7 @@ class ContinuationDemandPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding_medium
+        pad = PANEL_TOKENS.inset_lg
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -1021,7 +1018,7 @@ class MarginalValuePanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding
+        pad = PANEL_TOKENS.inset_md
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
         c.setStrokeColor(DEWR_LIGHT_GREY)
@@ -1089,7 +1086,7 @@ class TwoEvidenceCardsPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        gap = PANEL.gutter
+        gap = PANEL_TOKENS.gutter
         card_count = len(self.cards)
         card_w = (w - gap * (card_count - 1)) / card_count
 
@@ -1116,7 +1113,7 @@ class TwoEvidenceCardsPanel(Flowable):
             c.drawCentredString(x + card_w / 2, h - 18, card["metric"].upper())
             c.setStrokeColor(DEWR_LIGHT_GREY)
             c.setLineWidth(LINES.fine)
-            c.line(x + PANEL.divider_inset, h - 30, x + card_w - PANEL.divider_inset, h - 30)
+            c.line(x + PANEL_TOKENS.divider_inset, h - 30, x + card_w - PANEL_TOKENS.divider_inset, h - 30)
 
             c.setFillColor(DEWR_DARK_GREEN)
             c.setFont(FONT_BOLD, VISUAL_TEXT.kpi_value)
@@ -1151,7 +1148,7 @@ class HorizontalEvidenceCallout(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding + SPACING.xs
+        pad = PANEL_TOKENS.inset_md + SPACING.xs
         value_w = 92
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
@@ -1215,7 +1212,7 @@ class PublicAIUsefulnessVisual(Flowable):
             stroke_width=LINES.hairline,
         )
 
-        pad = PANEL.padding_xlarge
+        pad = PANEL_TOKENS.inset_xxl
         inner_w = w - 2 * pad
         gap = 28
         col_w = (inner_w - gap) / 2
@@ -1296,7 +1293,7 @@ class PriorExperienceComparisonPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding
+        pad = PANEL_TOKENS.inset_md
         inner_top = h - 14
         col_w = (w - 2 * pad) / 3
 
@@ -1357,7 +1354,7 @@ class HorizontalBarPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding
+        pad = PANEL_TOKENS.inset_md
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -1461,7 +1458,7 @@ class PublicToolTaskProfilePanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding_large
+        pad = PANEL_TOKENS.inset_xl
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -1592,7 +1589,7 @@ class AllToolTaskProfilePanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding_large
+        pad = PANEL_TOKENS.inset_xl
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -1709,7 +1706,7 @@ class SafeguardPrioritiesPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding
+        pad = PANEL_TOKENS.inset_md
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -1768,7 +1765,7 @@ class UncertaintyAreasPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding_medium
+        pad = PANEL_TOKENS.inset_lg
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -1829,7 +1826,7 @@ class SafeguardModelPanel(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding
+        pad = PANEL_TOKENS.inset_md
 
         draw_panel_background(c, 0, 0, w, h, stroke_width=0, radius=0)
 
@@ -1888,7 +1885,7 @@ class ConcernClusterMap(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding
+        pad = PANEL_TOKENS.inset_md
         cluster_gap = 20
         cluster_w = (w - 2 * pad - cluster_gap) / 2
 
@@ -2117,7 +2114,7 @@ class TaskFootprintExhibit(Flowable):
         c.saveState()
         w = self.box_width
         h = self._height
-        pad = PANEL.padding_large
+        pad = PANEL_TOKENS.inset_xl
         label_w = w * CHART_LAYOUT.dumbbell_label_width_ratio
         axis_x = pad + label_w
         axis_w = w - axis_x - pad
@@ -2249,8 +2246,8 @@ class KeyFindingPillarCard(Flowable):
     _ACCENT_W = 4.0
     _NUM_SIZE_HERO = 28
     _NUM_SIZE_STD = 24
-    _PAD_LEFT = 16
-    _PAD_RIGHT = 16
+    _PAD_LEFT = PANEL_TOKENS.inset_md
+    _PAD_RIGHT = PANEL_TOKENS.inset_md
 
     def __init__(self, number, title, bullets, card_width,
                  is_hero=False, accent_color=None, numbered_bullets=False):
@@ -2274,7 +2271,7 @@ class KeyFindingPillarCard(Flowable):
         return self.card_width - self._content_x() - self._PAD_RIGHT
 
     def _build_paras(self):
-        text_color = white
+        text_color = DEWR_DARK_GREY
 
         title_fs = 14.5
         title_ld = 17.0
@@ -2288,8 +2285,8 @@ class KeyFindingPillarCard(Flowable):
             spaceAfter=0,
         ))
 
-        bullet_fs = 8.25
-        bullet_ld = 10.45
+        bullet_fs = 9.25
+        bullet_ld = 11.45
         self._bullet_paras = []
         for b in self.bullet_texts:
             is_numbered = re.match(r"^\d+\.", b)
@@ -2312,20 +2309,16 @@ class KeyFindingPillarCard(Flowable):
         self._build_paras()
         cw = self._content_width()
 
-        num_size = self._NUM_SIZE_HERO
-        self._num_h = num_size + 6
-        title_x_offset = 42
-
-        _, th = self._title_para.wrap(cw - title_x_offset, 10000)
-        header_h = max(self._num_h, th)
-        total = header_h + 8
+        _, th = self._title_para.wrap(cw, 10000)
+        self._title_h = th
+        total = th + 8
 
         for bp in self._bullet_paras:
             _, bh = bp.wrap(cw, 10000)
             total += bh + 2.4
 
-        pad_top = 12
-        pad_bottom = 12
+        pad_top = PANEL_TOKENS.inset_sm
+        pad_bottom = PANEL_TOKENS.inset_sm
         self._height = total + pad_top + pad_bottom
         self.width = self.card_width
         self.height = self._height
@@ -2339,7 +2332,7 @@ class KeyFindingPillarCard(Flowable):
 
         c.saveState()
 
-        c.setFillColor(DEWR_DARK_GREY)
+        c.setFillColor(DEWR_OFF_WHITE)
         c.rect(ax, 0, w - ax, h, fill=1, stroke=0)
 
         c.setFillColor(self.accent_color)
@@ -2347,22 +2340,12 @@ class KeyFindingPillarCard(Flowable):
 
         content_x = self._content_x()
         cw = self._content_width()
-        pad_top = 12
+        pad_top = PANEL_TOKENS.inset_sm
         y = h - pad_top
 
-        num_size = self._NUM_SIZE_HERO
-        title_x_offset = 42
-        num_color = DEWR_DARK_GREEN
-        c.setFillColor(num_color)
-        c.setFillAlpha(0.45)
-        c.setFont(FONT_BOLD, num_size)
-        c.drawString(content_x, y - num_size + 2, self.num_str)
-        c.setFillAlpha(1.0)
-
-        _, th = self._title_para.wrap(cw - title_x_offset, 10000)
-        title_y = y - (self._num_h + th) / 2 + 2
-        self._title_para.drawOn(c, content_x + title_x_offset, title_y)
-        y -= max(self._num_h, th) + 8
+        th = self._title_h
+        self._title_para.drawOn(c, content_x, y - th)
+        y -= th + 8
 
         for bp in self._bullet_paras:
             _, bh = bp.wrap(cw, 10000)
@@ -2747,258 +2730,11 @@ def build_report():
         table.setStyle(access_evidence_table_style())
         return table
 
-    key_findings_label_style = ParagraphStyle(
-        "KeyFindingsLabel",
-        parent=note_style,
-        fontName=FONT_BOLD,
-        fontSize=7.5,
-        leading=8.5,
-        textColor=DEWR_DARK_GREY,
-        spaceBefore=0,
-        spaceAfter=0,
-    )
-    key_findings_card_kicker = ParagraphStyle(
-        "KeyFindingsCardKicker",
-        parent=note_style,
-        fontName=FONT_BOLD,
-        fontSize=7,
-        leading=8,
-        textColor=DEWR_TEXT_GREY,
-        spaceBefore=0,
-        spaceAfter=3,
-    )
-    key_findings_card_title = ParagraphStyle(
-        "KeyFindingsCardTitle",
-        parent=body_bold,
-        fontSize=10.2,
-        leading=12,
-        textColor=DEWR_DARK_GREY,
-        spaceBefore=0,
-        spaceAfter=5,
-    )
-    key_findings_card_metric = ParagraphStyle(
-        "KeyFindingsCardMetric",
-        parent=body_bold,
-        fontSize=18,
-        leading=20,
-        textColor=DEWR_DARK_GREEN,
-        spaceBefore=0,
-        spaceAfter=4,
-    )
-    key_findings_card_bullet = ParagraphStyle(
-        "KeyFindingsCardBullet",
-        parent=note_style,
-        fontSize=7.8,
-        leading=9.3,
-        leftIndent=8,
-        firstLineIndent=-8,
-        textColor=DEWR_DARK_GREY,
-        spaceBefore=0,
-        spaceAfter=3,
-    )
-    key_findings_feature_title = ParagraphStyle(
-        "KeyFindingsFeatureTitle",
-        parent=key_findings_card_title,
-        fontSize=12.2,
-        leading=14.5,
-        spaceAfter=8,
-    )
-    key_findings_feature_bullet = ParagraphStyle(
-        "KeyFindingsFeatureBullet",
-        parent=key_findings_card_bullet,
-        fontSize=9.0,
-        leading=11.6,
-        leftIndent=10,
-        firstLineIndent=-10,
-        spaceAfter=5,
-    )
-    key_findings_card_numbered = ParagraphStyle(
-        "KeyFindingsCardNumbered",
-        parent=note_style,
-        fontSize=7.8,
-        leading=9.3,
-        leftIndent=0,
-        firstLineIndent=0,
-        textColor=DEWR_DARK_GREY,
-        spaceBefore=0,
-        spaceAfter=4,
-    )
-    key_findings_implication_style = ParagraphStyle(
-        "KeyFindingsImplication",
-        parent=body_bold,
-        fontSize=11,
-        leading=14,
-        textColor=DEWR_DARK_GREY,
-        spaceBefore=0,
-        spaceAfter=5,
-    )
-    key_findings_small_body = ParagraphStyle(
-        "KeyFindingsSmallBody",
-        parent=note_style,
-        fontSize=8.2,
-        leading=10,
-        textColor=DEWR_DARK_GREY,
-        spaceBefore=0,
-        spaceAfter=4,
-    )
-
-    def key_findings_bullet(text, bullet_style_override=None):
-        if re.match(r"^\d+\.", text):
-            return Paragraph(text, key_findings_card_numbered)
-        return Paragraph(
-            f"<bullet>&bull;</bullet> {text}",
-            bullet_style_override or key_findings_card_bullet,
-        )
-
-    def key_findings_card(kicker, title, metric, bullets, feature=False):
-        title_style = key_findings_feature_title if feature else key_findings_card_title
-        bullet_style_override = key_findings_feature_bullet if feature else None
-        content = [Paragraph(title, title_style)]
-        content.extend(key_findings_bullet(item, bullet_style_override) for item in bullets)
-        height = 186 if feature else 82 + 16 * len(bullets)
-        return ["", content, height, feature]
-
-    def key_findings_card_grid(cards):
-        rows = []
-        row_heights = []
-        feature_rows = set()
-        for idx, card in enumerate(cards):
-            rows.append(card[:2])
-            row_heights.append(card[2])
-            if card[3]:
-                feature_rows.add(len(rows) - 1)
-            if idx < len(cards) - 1:
-                rows.append(["", ""])
-                row_heights.append(9)
-
-        table = Table(
-            rows,
-            colWidths=[5, width - 5],
-            rowHeights=row_heights,
-            hAlign="LEFT",
-        )
-        style = TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 12),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 11),
-            ("LEFTPADDING", (0, 0), (-1, -1), 13),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 13),
-        ])
-        for row_idx in range(0, len(rows), 2):
-            style.add("BACKGROUND", (0, row_idx), (0, row_idx), DEWR_GREEN)
-            bg_color = HexColor("#F4F7F1") if row_idx in feature_rows else DEWR_OFF_WHITE
-            style.add("BACKGROUND", (1, row_idx), (1, row_idx), bg_color)
-            style.add("BACKGROUND", (0, row_idx), (-1, row_idx), bg_color)
-            if row_idx not in feature_rows:
-                style.add("BOX", (0, row_idx), (-1, row_idx), LINES.hairline, DEWR_SOFT_LINE)
-            style.add("BACKGROUND", (0, row_idx), (0, row_idx), DEWR_GREEN)
-            style.add("LEFTPADDING", (0, row_idx), (0, row_idx), 0)
-            style.add("RIGHTPADDING", (0, row_idx), (0, row_idx), 0)
-            style.add("TOPPADDING", (0, row_idx), (0, row_idx), 0)
-            style.add("BOTTOMPADDING", (0, row_idx), (0, row_idx), 0)
-            style.add("LEFTPADDING", (1, row_idx), (1, row_idx), 13)
-        for row_idx in range(1, len(rows), 2):
-            style.add("BACKGROUND", (0, row_idx), (-1, row_idx), white)
-            style.add("TOPPADDING", (0, row_idx), (-1, row_idx), 0)
-            style.add("BOTTOMPADDING", (0, row_idx), (-1, row_idx), 0)
-        table.setStyle(style)
-        return table
-
     def pillar_card(number, title, bullets, is_hero=False):
         return KeyFindingPillarCard(
             number, title, bullets, width,
             is_hero=is_hero, accent_color=DEWR_GREEN,
         )
-
-    def risk_metric(value, label):
-        return [
-            Paragraph(value, key_findings_card_metric),
-            Paragraph(label.upper(), key_findings_label_style),
-        ]
-
-    def key_findings_risk_panel():
-        metrics = Table(
-            [[risk_metric("75%", "comfortable with public tools"),
-              risk_metric("82.5%", "comfortable when safeguards were effective"),
-              risk_metric("48% vs 27%", "document upload gap")]],
-            colWidths=[width * 0.19, width * 0.24, width * 0.21],
-        )
-        metrics.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-            ("TOPPADDING", (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-        ]))
-        content = [
-            Paragraph("RISK AND CONFIDENCE", key_findings_card_kicker),
-            Paragraph(
-                "Comfort enables adoption, but also increases exposure to boundary-case risk.",
-                key_findings_implication_style,
-            ),
-            metrics,
-            Spacer(1, 5),
-            key_findings_bullet(
-                "Respondents who were comfortable using the tools were almost twice as likely to upload documents."
-            ),
-            key_findings_bullet(
-                "Future mitigation should strengthen user judgement and boundary clarity, not rely only on tighter access controls."
-            ),
-            key_findings_bullet(
-                f"Ethical considerations were reported by {red_markup(marked_value('12%', '11%'))} of respondents, compared with 3% for security concerns."
-            ),
-        ]
-        table = Table([[content]], colWidths=[width])
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), DEWR_OFF_WHITE),
-            ("LINEBEFORE", (0, 0), (0, 0), 4, DEWR_GREEN),
-            ("BOX", (0, 0), (-1, -1), LINES.hairline, DEWR_SOFT_LINE),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 13),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
-            ("LEFTPADDING", (0, 0), (-1, -1), 15),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 15),
-        ]))
-        return table
-
-    def key_findings_action_cards():
-        action_title = ParagraphStyle(
-            "KeyFindingsActionTitle",
-            parent=key_findings_card_title,
-            fontSize=9.5,
-            leading=11.2,
-            spaceAfter=4,
-        )
-        cells = [
-            [
-                Paragraph("SCALE", key_findings_card_kicker),
-                Paragraph("Prioritise integrated tools where time savings are strongest.", action_title),
-                Paragraph("M365 Copilot already shows higher value for complex knowledge work.", key_findings_small_body),
-            ],
-            [
-                Paragraph("FIX", key_findings_card_kicker),
-                Paragraph("Resolve corporate integration and free-tool usage limits.", action_title),
-                Paragraph("These are the most visible constraints for experienced users.", key_findings_small_body),
-            ],
-            [
-                Paragraph("GOVERN", key_findings_card_kicker),
-                Paragraph("Clarify risky boundary cases before expanding use.", action_title),
-                Paragraph("Comfort should be paired with sharper guidance and judgement aids.", key_findings_small_body),
-            ],
-        ]
-        table = Table([cells], colWidths=[width / 3] * 3)
-        style = TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), white),
-            ("BOX", (0, 0), (-1, -1), LINES.hairline, DEWR_SOFT_LINE),
-            ("INNERGRID", (0, 0), (-1, -1), LINES.hairline, DEWR_SOFT_LINE),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING", (0, 0), (-1, -1), 10),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
-            ("LEFTPADDING", (0, 0), (-1, -1), 11),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 11),
-        ])
-        table.setStyle(style)
-        return table
 
     def sp(h=RHYTHM.paragraph_gap):
         return Spacer(1, h)
@@ -3091,10 +2827,10 @@ def build_report():
         ("BACKGROUND", (0, 0), (0, 0), DEWR_GREEN),
         ("LEFTPADDING", (0, 0), (0, 0), 0),
         ("RIGHTPADDING", (0, 0), (0, 0), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 13),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 13),
-        ("LEFTPADDING", (1, 0), (1, 0), 16),
-        ("RIGHTPADDING", (1, 0), (1, 0), 16),
+        ("TOPPADDING", (0, 0), (-1, -1), PANEL_TOKENS.cell_pad_y),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), PANEL_TOKENS.cell_pad_y),
+        ("LEFTPADDING", (1, 0), (1, 0), PANEL_TOKENS.cell_pad_x),
+        ("RIGHTPADDING", (1, 0), (1, 0), PANEL_TOKENS.cell_pad_x),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
     story.append(executive_quote)
@@ -3187,29 +2923,31 @@ def build_report():
     # ==============================
     # KEY FINDINGS
     # ==============================
-    story.append(toc_heading("Key findings", copilot_section_header, 1))
-    story.append(after_note_gap())
-    story.append(pillar_card(
-        1,
-        "Microsoft Copilot",
-        [
-            "<b>Copilot already saves us 3 to 6 hours per week.</b> M365 Copilot users saved nearly 6 hours a week (about 15%), almost double the 2.8 hours a week (about 8%) reported by Copilot Chat users. As a result, an M365 license pays for itself within the first two weeks.",
-            "<b>All versions of Copilot were used for summarising, editing and revision, and drafting.</b> Compared to Copilot Chat, M365 Copilot was used more for complex knowledge work such as research, problem solving and ideation (67.7% of users, compared to 43.6% of Chat users), and for planning or meeting preparation (35.5% of users compared to 12.8% of Chat).",
-            "<b>M365 Copilot is associated with higher reported productivity across both workforce segments and organisational groups.</b> Corporate and Enabling, Employment and Workforce, and Skills groups reported the largest relative uplifts (2.5x, 2.2x, and 1.9x respectively), while Workplace Relations reported only slightly higher productivity over Copilot Chat (1.2x). Across the department, EL users reported M365 Copilot time savings at 2.7x the rate of Copilot Chat users, compared with 1.7x for APS users.",
-        ],
-        is_hero=True,
-    ))
-    story.append(Spacer(1, 5))
-    story.append(pillar_card(
-        2,
-        "Public Generative AI tools: ChatGPT, Gemini, and Claude",
-        [
-            "<b>Public generative AI tools were used mainly for core knowledge-work tasks, especially research, summarising, editing and drafting.</b> Claude had the strongest research profile, with 73.2% of Claude users using it for research, problem solving or ideation, while ChatGPT and Gemini were used more broadly across common writing and information tasks. Public generative AI was used much less for planning and meeting preparation, highlighting a key limitation of the public tools for tasks that depend on integration with department systems.",
-            "<b>ChatGPT had the widest uptake (92% of users), but Claude showed the strongest usefulness signal.</b> Claude was rated at least very useful by 46.3% of users (compared to 29.7% for Gemini and 28.6% for ChatGPT), and was the most requested tool to continue after the trial (63%, compared to 54% and 43% for ChatGPT and Gemini). Overall, demand for continued access to at least one of the public tools was strong (72%), with experienced or highly experienced AI users more emphatic than less experienced users. This suggests staff benefit from access to different tools for different types of work, rather than there being a single best option.",
-            "<b>Most users (92%) reported at least one limitation from the public tools.</b> The main barriers were a lack of integration with department systems (49%) and the usage limits of the free tools (41%). Usage caps were especially common among experienced users (60%), indicating that the free versions were most likely to constrain staff who had the capability to identify higher-value use cases and use the tools more productively.",
-            "<b>Most respondents (75%) were comfortable using the tools, but key concerns were raised.</b> Ethical considerations were more commonly reported (12% of respondents) than security concerns (3% of respondents). Users who were more comfortable with the tools were more likely to use more 'risky' features such as uploading files (48%) than users who were not comfortable (27%). Education and training play a key role in building comfort. Key concerns related to uncertainty about what information could be entered and how to validate results. Similarly, staff who rated the introductory guidance and splash screens as effective were more likely to be comfortable (82.5%) than those who did not (60%). Future risk mitigation may benefit more from clearer guidance, clarifying boundary cases and strengthening user judgement than from expanding technical controls alone.",
-        ],
-    ))
+    story.append(KeepTogether([
+        toc_heading("Key findings", copilot_section_header, 1),
+        after_note_gap(),
+        pillar_card(
+            1,
+            "Microsoft Copilot",
+            [
+                "<b>Copilot already saves us 3 to 6 hours per week.</b> M365 Copilot users saved nearly 6 hours a week (about 15%), almost double the 2.8 hours a week (about 8%) reported by Copilot Chat users. As a result, an M365 license pays for itself within the first two weeks.",
+                "<b>All versions of Copilot were used for summarising, editing and revision, and drafting.</b> Compared to Copilot Chat, M365 Copilot was used more for complex knowledge work such as research, problem solving and ideation (67.7% of users, compared to 43.6% of Chat users), and for planning or meeting preparation (35.5% of users compared to 12.8% of Chat).",
+                "<b>M365 Copilot is associated with higher reported productivity across both workforce segments and organisational groups.</b> Corporate and Enabling, Employment and Workforce, and Skills groups reported the largest relative uplifts (2.5x, 2.2x, and 1.9x respectively), while Workplace Relations reported only slightly higher productivity over Copilot Chat (1.2x). Across the department, EL users reported M365 Copilot time savings at 2.7x the rate of Copilot Chat users, compared with 1.7x for APS users.",
+            ],
+            is_hero=True,
+        ),
+        Spacer(1, 10),
+        pillar_card(
+            2,
+            "Public Generative AI tools: ChatGPT, Gemini, and Claude",
+            [
+                "<b>Public generative AI tools were used mainly for core knowledge-work tasks, especially research, summarising, editing and drafting.</b> Claude had the strongest research profile, with 73.2% of Claude users using it for research, problem solving or ideation, while ChatGPT and Gemini were used more broadly across common writing and information tasks. Public generative AI was used much less for planning and meeting preparation, highlighting a key limitation of the public tools for tasks that depend on integration with department systems.",
+                "<b>ChatGPT had the widest uptake (92% of users), but Claude showed the strongest usefulness signal.</b> Claude was rated at least very useful by 46.3% of users (compared to 29.7% for Gemini and 28.6% for ChatGPT), and was the most requested tool to continue after the trial (63%, compared to 54% and 43% for ChatGPT and Gemini). Overall, demand for continued access to at least one of the public tools was strong (72%), with experienced or highly experienced AI users more emphatic than less experienced users. This suggests staff benefit from access to different tools for different types of work, rather than there being a single best option.",
+                "<b>Most users (92%) reported at least one limitation from the public tools.</b> The main barriers were a lack of integration with department systems (49%) and the usage limits of the free tools (41%). Usage caps were especially common among experienced users (60%), indicating that the free versions were most likely to constrain staff who had the capability to identify higher-value use cases and use the tools more productively.",
+                "<b>Most respondents (75%) were comfortable using the tools, but key concerns were raised.</b> Ethical considerations were more commonly reported (12% of respondents) than security concerns (3% of respondents). Users who were more comfortable with the tools were more likely to use more 'risky' features such as uploading files (48%) than users who were not comfortable (27%). Education and training play a key role in building comfort. Key concerns related to uncertainty about what information could be entered and how to validate results. Similarly, staff who rated the introductory guidance and splash screens as effective were more likely to be comfortable (82.5%) than those who did not (60%). Future risk mitigation may benefit more from clearer guidance, clarifying boundary cases and strengthening user judgement than from expanding technical controls alone.",
+            ],
+        ),
+    ]))
     story.append(PageBreak())
 
     # ==============================
@@ -3770,10 +3508,10 @@ def build_report():
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LINEBELOW", (0, 0), (-1, 0), 0.5, DEWR_LIGHT_GREY),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [white, DEWR_OFF_WHITE]),
-            ("LEFTPADDING", (0, 0), (-1, -1), 5),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), PANEL_TOKENS.cell_pad_x_tight),
+            ("RIGHTPADDING", (0, 0), (-1, -1), PANEL_TOKENS.cell_pad_x_tight),
+            ("TOPPADDING", (0, 0), (-1, -1), PANEL_TOKENS.cell_pad_y_tight),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), PANEL_TOKENS.cell_pad_y_tight),
             ("BOTTOMPADDING", (0, 0), (-1, 0), TABLE_HEADER_RULE_GAP),
         ]))
         return table

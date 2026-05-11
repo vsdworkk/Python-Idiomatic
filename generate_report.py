@@ -2519,13 +2519,6 @@ def build_report():
             alignment=TA_CENTER,
             textColor=table_text_color,
         )
-        compact_header_style = visual_style(
-            "AccessEvidenceHeaderCompact",
-            "table_header",
-            parent=header_style,
-            fontSize=7.2,
-            leading=9.0,
-        )
         measure_header_style = visual_style(
             "AccessEvidenceMeasureHeader",
             "table_header",
@@ -2560,8 +2553,8 @@ def build_report():
                 Paragraph("MEASURE", measure_header_style),
                 Paragraph("COPILOT CHAT", header_style),
                 Paragraph("M365 COPILOT", header_style),
-                Paragraph("HIGHLY EXPERIENCED<br/>OR EXPERIENCED", compact_header_style),
-                Paragraph("SOME OR NO OR BASIC<br/>EXPERIENCE", compact_header_style),
+                Paragraph("HIGH EXPERIENCE", header_style),
+                Paragraph("LOW EXPERIENCE", header_style),
             ],
             [
                 Paragraph("Public AI rated at least moderately useful", measure_style),
@@ -3125,7 +3118,8 @@ def build_report():
     story.append(source_note(
         f"Note: Results are based on respondents with known Copilot version who used at least one public AI tool and provided valid responses for the relevant measures. "
         f"M365 Copilot {red_markup(marked_value('n=28', 'n=27'))}; Copilot Chat/basic {red_markup(marked_value('n=33', 'n=34'))}; "
-        "Highly Experienced or Experienced n=22; Some or No or Basic Experience n=39. "
+        "High Experience = Highly Experienced or Experienced (n=22); "
+        "Low Experience = Some or No or Basic Experience (n=39). "
         "Useful means moderately, very or extremely useful."
     ))
     story.append(para_gap())

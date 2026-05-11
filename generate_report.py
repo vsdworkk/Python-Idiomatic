@@ -2509,6 +2509,17 @@ def build_report():
     def source_note(text):
         return Paragraph(text, source_note_style)
 
+    def section_divider():
+        table = Table([[""]], colWidths=[width])
+        table.setStyle(TableStyle([
+            ("LINEABOVE", (0, 0), (-1, 0), LINES.fine, DEWR_LIGHT_GREY),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        return table
+
     def access_evidence_table(red=False):
         table_text_color = DEWR_RED if red else DEWR_DARK_GREY
         table_value_color = DEWR_RED if red else DEWR_DARK_GREY
@@ -2625,6 +2636,9 @@ def build_report():
 
     def visual_spacer():
         return sp(SPACING.lg)
+
+    def after_figure_label_gap():
+        return visual_spacer()
 
     # ==============================
     # COVER PAGE
@@ -2798,7 +2812,7 @@ def build_report():
         "49% of survey respondents reported lack of integration with corporate tools as a "
         "barrier. This was consistent across all three tools."))
     story.append(bullet(
-        "41% of survey respondents reported the prompt/request limits offered by the free tools "
+        "41% of survey respondents reported the prompt or request limits offered by the free tools "
         "as a barrier."))
     story.append(bullet(
         "Almost 60% of experienced and highly experienced AI users reported hitting usage caps "
@@ -2877,13 +2891,13 @@ def build_report():
     story.append(Paragraph("M365 Copilot users reported substantially higher time savings", s1_h3))
     story.append(Paragraph(
         "M365 Copilot users reported average time savings of 5.7 hours per week, compared with "
-        "2.8 hours per week for Copilot Chat/basic users. This means M365 Copilot users reported "
-        "roughly twice the weekly time savings of Copilot Chat/basic users.", s1_body))
+        "2.8 hours per week for Copilot Chat users. This means M365 Copilot users reported "
+        "roughly twice the weekly time savings of Copilot Chat users.", s1_body))
     story.append(visual_spacer())
     story.append(TimeSavingsPanel(width))
     story.append(tight_gap())
     story.append(figure_label("Average weekly time saved by Copilot version", figure_label_center_style))
-    story.append(sp(9))
+    story.append(after_figure_label_gap())
     story.append(Paragraph(
         f"The reported {red_markup(marked_value('68 minutes per day', '69 minutes per day'))} for M365 Copilot users is in the same broad range as the "
         "DTA whole-of-government Copilot trial, which identified around an hour a day of perceived "
@@ -2912,7 +2926,7 @@ def build_report():
         visual_spacer(),
         CopilotEngagementDeltaPanel(width),
         tight_gap(),
-        figure_label("Copilot engagement and value signals by version"),
+        figure_label("Copilot Frequency of Use and Usefulness ratings by Version"),
     ]))
     story.append(visual_gap())
 
@@ -2935,8 +2949,8 @@ def build_report():
         show_section_titles=False,
     ))
     story.append(tight_gap())
-    story.append(figure_label("M365 Copilot value and licence reach by workforce segment"))
-    story.append(sp(9))
+    story.append(figure_label("M365 Copilot Time Savings and Licence Reach by APS Level"))
+    story.append(after_figure_label_gap())
     story.append(Paragraph(
         "A similar pattern appears across organisational groups, where Corporate and Enabling and Employment and Workforce reported the largest relative uplift. This builds on the earlier finding that M365 Copilot users report deeper engagement and higher perceived usefulness: the tool appears to generate more value where it is available, but the low licence reach means those benefits are currently concentrated among a small share of staff.",
         s1_body))
@@ -2954,14 +2968,12 @@ def build_report():
         show_section_titles=False,
     ))
     story.append(tight_gap())
-    story.append(figure_label(
-        "M365 Copilot value and licence reach by organisational group. "
+    story.append(figure_label("M365 Copilot value and licence reach by organisational group"))
+    story.append(source_note(
         "Note: M365 value = relative time savings for M365 licence holders vs Copilot Chat users; "
-        "M365 licence = proportion of each group with an M365 licence."))
-    story.append(sp(9))
-    story.append(Paragraph(
-        "The implication is not simply that M365 Copilot performs better than public or chat-based tools, but that future benefits will depend on whether access is expanded deliberately to the workforces and functions where higher-value use cases are most likely to scale.",
-        s1_body))
+        "M365 licence = proportion of each group with an M365 licence. "
+        "Jobs and Skills Australia was excluded because of low sample size."))
+    story.append(after_figure_label_gap())
     story.append(visual_gap())
 
     # Task types
@@ -3028,13 +3040,13 @@ def build_report():
         [
             ("Used tool during trial", ["92%", "67%", "61%"], 0),
             ("Rated at least moderately useful", ["62.5%", "70.7%", "64.9%"], 1),
-            ("Rated very/extremely useful", ["28.6%", "46.3%", "29.7%"], 1),
+            ("Rated very or extremely useful", ["28.6%", "46.3%", "29.7%"], 1),
             ("Wanted continued access", ["54%", "63%", "43%"], 1),
         ],
         first_col_ratio=0.43,
     ))
     story.append(tight_gap())
-    story.append(figure_label("Public AI tool reach and value signals"))
+    story.append(figure_label("Public AI Tool Usage and Usefulness by Tool"))
     story.append(para_gap())
 
     # Task types
@@ -3048,8 +3060,8 @@ def build_report():
     story.append(visual_spacer())
     story.append(AllToolTaskProfilePanel(width))
     story.append(tight_gap())
-    story.append(figure_label("All-tool task footprint across public tools and Copilot"))
-    story.append(sp(9))
+    story.append(figure_label("Task Footprint across Public AI Tools and Copilot Versions"))
+    story.append(after_figure_label_gap())
     story.append(bullet(
         "<b>Coding or data work:</b> Claude was notably higher at 26.8%, compared with "
         "13.5% for Gemini and 10.7% for ChatGPT, suggesting a stronger specialist-use profile."))
@@ -3076,8 +3088,8 @@ def build_report():
     story.append(visual_spacer())
     story.append(ContinuationDemandPanel(width))
     story.append(tight_gap())
-    story.append(figure_label("Public tool continuation demand by specific tool"))
-    story.append(sp(9))
+    story.append(figure_label("Demand for Continued Access by Public AI Tool"))
+    story.append(after_figure_label_gap())
     story.append(bullet(
         "M365 Copilot users were less likely to want to continue using the public tools "
         "than Copilot Chat users."))
@@ -3096,42 +3108,32 @@ def build_report():
     story.append(sp(9))
     story.append(Paragraph("Copilot Chat and M365 Copilot users get different value from Public Gen AI tools", h3_after_callout))
     story.append(Paragraph(
-        f"Among Copilot Chat/basic users, {red_markup(marked_value('81.8%', '82.4%'))} rated public AI tools useful, "
-        f"compared with {red_markup(marked_value('69.7%', '70.6%'))} who rated Copilot at least moderately useful. "
-        f"Among M365 Copilot users, the pattern was reversed: {red_markup(marked_value('92.9%', '92.6%'))} rated Copilot at least moderately useful, "
-        f"compared with {red_markup(marked_value('78.6%', '77.8%'))} who rated public AI tools useful.",
-        body))
-    story.append(Paragraph(
-        f"Weekly use points to the same relative pattern. Public AI weekly use was similar across access groups "
-        f"({red_markup(marked_value('54.5%', '52.9%'))} for Copilot Chat/basic users and {red_markup(marked_value('50.0%', '51.9%'))} for M365 Copilot users). "
-        f"However, for Copilot Chat/basic users, public AI weekly use sat close to their Copilot weekly use "
-        f"({red_markup(marked_value('57.6%', '58.8%'))}), while for M365 Copilot users it sat well below their Copilot weekly use "
-        f"({red_markup(marked_value('85.7%', '85.2%'))}). Public AI added value beyond Copilot for "
-        f"{red_markup(marked_value('75.0%', '73.5%'))} of Copilot Chat/basic users and {red_markup(marked_value('82.1%', '81.5%'))} of M365 Copilot users.",
+        "Overall, both M365 Copilot and Copilot Chat users rated the Public Generative AI tools as useful at "
+        "comparable levels. M365 license holders, who were more likely to rate Copilot as useful and to use it "
+        "more frequently, were also more likely to report getting more value out of the Public Gen AI tools on top "
+        "of Copilot. Furthermore, while they reported value from the Public Gen AI tools, they used them at a "
+        "comparable rate to Copilot Chat users.",
         body))
     story.append(visual_spacer())
     story.append(KeepTogether([
         access_evidence_table(),
         tight_gap(),
-        figure_label("Copilot access value comparison"),
+        figure_label("Public AI and Copilot Ratings"),
     ]))
     story.append(source_note(
-        f"Note: Results are based on respondents with known Copilot version who used at least one public AI tool and provided valid responses for the relevant measures. "
-        f"M365 Copilot {red_markup(marked_value('n=28', 'n=27'))}; Copilot Chat/basic {red_markup(marked_value('n=33', 'n=34'))}; "
-        "High Experience = Highly Experienced or Experienced (n=22); "
-        "Low Experience = Some or No or Basic Experience (n=39). "
-        "Useful means moderately, very or extremely useful."
+        "Note: High Experience = Highly Experienced or Experienced; "
+        "Low Experience = Some or No or Basic Experience."
     ))
     story.append(para_gap())
 
     # Prior experience variation
     story.append(CondPageBreak(155))
     story.append(KeepTogether([
-        Paragraph("Experienced users converted access into higher value", h3),
+        Paragraph("Experienced users gained more value", h3),
         Paragraph(
-            "Prior Gen AI experience was the clearest capability signal in the productivity results. "
-            "Experienced and highly experienced users were more likely to report added value from "
-            "public tools, rate them as deeply useful, and strongly want continued access.", body),
+            "Prior Gen AI experience was also associated with stronger reported outcomes. Experienced and highly "
+            "experienced respondents were more likely to report significant added value from public tools than "
+            "respondents with lower levels of prior Gen AI experience.", body),
         visual_spacer(),
         EvidenceMatrixPanel(
             width,
@@ -3142,8 +3144,8 @@ def build_report():
                 "No or basic<br/>experience",
             ],
             [
-                ("Reported some/significant added value over Copilot", ["91%", "73%", "67%"], 0),
-                ("Rated at least one public tool very/extremely useful", ["73%", "46%", "39%"], 0),
+                ("Reported some or significant added value over Copilot", ["91%", "73%", "67%"], 0),
+                ("Rated at least one public tool very or extremely useful", ["73%", "46%", "39%"], 0),
                 ("Strongly wanted continued access", ["55%", "31%", "15%"], 0),
                 ("Rated a public tool better than Copilot on at least one dimension", ["86%", "69%", "69%"], 0),
             ],
@@ -3153,13 +3155,19 @@ def build_report():
         ),
         tight_gap(),
         figure_label("Prior AI experience was the clearest signal of public-tool value"),
-        sp(9),
+        after_figure_label_gap(),
         Paragraph(
-            "The pattern suggests experience acts as an enabling factor for value realisation. Public "
-            "tools may create more productivity value when staff have the capability to identify "
-            "higher-value use cases, compare tools effectively, and use them alongside Copilot rather "
-            "than as a simple substitute. The relationship is indicative rather than causal, and may "
-            "also reflect differences in role, task complexity, or digital capability.",
+            "They were also more likely to rate at least one public tool better than Copilot on at least one "
+            "comparison dimension (86% vs 69% for both lower-experience groups), such as output quality, time "
+            "savings or responsiveness, and to strongly want continued access (55% vs 31% some prior Gen AI "
+            "experience and 15% no/basic prior Gen AI experience).",
+            body),
+        Paragraph(
+            "This pattern is consistent with experience acting as an enabling factor for value realisation. While "
+            "the results are not causal, they suggest that capability uplift may increase the likelihood that staff "
+            "can identify higher-value use cases and realise more benefits from both enterprise and public AI tools, "
+            "although some of this relationship may also reflect differences in role, task complexity, or pre-existing "
+            "digital capability.",
             body),
     ]))
 
@@ -3188,7 +3196,8 @@ def build_report():
         header_body_gap=6,
     ))
     story.append(tight_gap())
-    story.append(figure_label("Classification level showed different value signals, not a single productivity gradient"))
+    story.append(figure_label("Public AI and Copilot Ratings by APS Level"))
+    story.append(after_figure_label_gap())
     story.append(Paragraph(
         "This difference may reflect variation in work type across classification levels, including "
         "task complexity and exposure to higher-value knowledge work, differences in capability, or "
@@ -3223,7 +3232,7 @@ def build_report():
         first_col_ratio=0.32,
     ))
     story.append(tight_gap())
-    story.append(figure_label("Added value beyond Copilot and Copilot usefulness by organisational group"))
+    story.append(figure_label("Copilot Ratings by Organisational Group"))
     story.append(sp(8))
     story.append(source_note(
         "Note: Jobs and Skills Australia was excluded because of low sample size."))
@@ -3243,14 +3252,14 @@ def build_report():
     story.append(visual_spacer())
     story.append(HorizontalBarPanel(width, None, [
         ("Lack of integration with internal systems or Microsoft 365 products", 49),
-        ("Free prompt/request limits", 41),
+        ("Free prompt or request limits", 41),
         ("Misinterpreted prompts", 34),
         ("Difficulty with specialised topics", 34),
         ("Slow responses", 28),
         ("Fabricated content or hallucinations", 15),
     ], max_value=100, primary_count=2, row_h=CHART_LAYOUT.row_height_dense))
     story.append(tight_gap())
-    story.append(figure_label("Limitations reported by respondents"))
+    story.append(figure_label("Reported Limitations of Public AI Tools"))
 
     # Section 3: Concerns
     story.append(PageBreak())
@@ -3258,7 +3267,7 @@ def build_report():
     story.append(callout(
         "Most survey respondents were comfortable and reported security concerns were rare. Survey "
         "results suggest safety communications and splash screens supported cautious use, while "
-        "data-handling risks were mainly visible through copy/paste behaviour and user judgement.",
+        "data-handling risks were mainly visible through copy and paste behaviour and user judgement.",
         DEWR_DARK_GREEN))
     story.append(ValueSignalsPanel(width, [
         ("75%", "Comfortable or very comfortable using public tools"),
@@ -3308,7 +3317,7 @@ def build_report():
         "information for use with AI.", body))
     story.append(PageBreak())
 
-    story.append(Paragraph("Comfort shaped data-sharing behaviour, while safety supports were broadly effective", h3))
+    story.append(Paragraph("Comfort shape data sharing behaviour when using public AI tools.", h3))
     story.append(Paragraph(
         "Users were more likely to copy and paste information into public tools than upload documents, "
         "but comfort level shaped the type of data shared. Comfortable users were similarly likely to "
@@ -3317,21 +3326,28 @@ def build_report():
     story.append(visual_spacer())
     story.append(ComfortDataHandlingPanel(width))
     story.append(tight_gap())
-    story.append(figure_label("Data handling behaviour by comfort using public tools"))
-    story.append(sp(9))
+    story.append(figure_label("Data Sharing Behaviour by Comfort with Public AI Tools"))
+    story.append(after_figure_label_gap())
+    story.append(Paragraph("Safety communications were rated effectively by most survey responders", h3))
+    story.append(tight_gap())
+    story.append(ValueSignalsPanel(width, [
+        ("74%", "Rated introductory emails at least moderately effective"),
+        ("72%", "Rated splash screens at least moderately effective"),
+        ("67%", "Rated both introductory emails and splash screens at least moderately effective"),
+    ], primary_count=1))
+    story.append(visual_spacer())
     story.append(Paragraph(
         "The trial used a mix of guidance and technical safeguards to support safe use of public Gen AI "
         "tools. Staff received instructions on appropriate use, including upload rules, while introductory "
         "emails, splash screens and upload blockers were used to communicate risks and reduce the likelihood "
         "of classified information being uploaded.", body))
-    story.append(sp(4))
     story.append(Paragraph(
-        "Survey respondents were asked to rate the effectiveness of three safety supports used during the trial:",
+        "Most respondents rated the trial's communication supports as effective. Introductory emails "
+        "(74%) and splash screens (72%) were both widely rated as moderately or highly effective, "
+        "and 67% of respondents rated both channels as effective. Upload blockers were less visible, "
+        "with 16.7% of respondents noticing or rating them as effective, and no respondent rating "
+        "them ineffective.",
         body))
-    story.append(sp(2))
-    story.append(bullet("<b>Introductory emails:</b> <b>74%</b> rated them moderately or highly effective."))
-    story.append(bullet("<b>Splash screens:</b> <b>72%</b> rated them moderately or highly effective."))
-    story.append(bullet("<b>Upload blockers:</b> <b>16.7%</b> of respondents noticed or rated them as effective, and no respondent rated them ineffective."))
     story.append(para_gap())
 
     def appendix_table(headers, rows, widths=None):

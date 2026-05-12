@@ -101,6 +101,34 @@ class LinkedContentsDocTemplate(SimpleDocTemplate):
         self.canv.bookmarkPage(key)
         self.canv.addOutlineEntry(flowable._toc_text, key, flowable._toc_level, closed=False)
         self.notify("TOCEntry", (flowable._toc_level, flowable._toc_text, self.page, key))
+
+
+class FooterNoteMarker(Flowable):
+    """Invisible marker that registers a footer note for the page it lands on.
+
+    Place these in the story where a note logically belongs. At draw time the
+    marker records its current page in the class-level registry. The footer
+    renderer then renders the appropriate notes at the bottom of each page.
+    """
+
+    _registry = {}  # page_number -> [note_texts]
+
+    def __init__(self, text):
+        Flowable.__init__(self)
+        self.text = text
+        self.width = 0
+        self.height = 0
+
+    def wrap(self, availWidth, availHeight):
+        return (0, 0)
+
+    def draw(self):
+        page = self.canv.getPageNumber()
+        notes = FooterNoteMarker._registry.setdefault(page, [])
+        if self.text not in notes:
+            notes.append(self.text)
+
+
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
@@ -944,7 +972,7 @@ class EvidenceMatrixPanel(Flowable):
 
 
 class ContinuationDemandPanel(Flowable):
-    """Continuation demand summary for public Gen AI tools."""
+    """Continuation demand summary for public generative AI."""
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
@@ -1262,7 +1290,7 @@ class PublicAIUsefulnessVisual(Flowable):
             left_x,
             "Copilot Chat",
             [
-                ("Public AI", 81.8, "81.8% (82.4%)", DEWR_DARK_GREEN),
+                ("Public Generative AI", 81.8, "81.8% (82.4%)", DEWR_DARK_GREEN),
                 ("Copilot", 69.7, "69.7%", comparison_grey),
             ],
         )
@@ -1271,7 +1299,7 @@ class PublicAIUsefulnessVisual(Flowable):
             "M365 Copilot",
             [
                 ("Copilot", 92.9, "92.9%", DEWR_DARK_GREY),
-                ("Public AI", 78.6, "78.6% (77.8%)", comparison_grey),
+                ("Public Generative AI", 78.6, "78.6% (77.8%)", comparison_grey),
             ],
         )
         c.restoreState()
@@ -1394,7 +1422,7 @@ class HorizontalBarPanel(Flowable):
 
 
 class ComfortDataHandlingPanel(Flowable):
-    """Dot plot for data-handling behaviour by comfort using public tools."""
+    """Dot plot for data-handling behaviour by comfort using public generative AI."""
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
@@ -1427,7 +1455,7 @@ class ComfortDataHandlingPanel(Flowable):
 
 
 class PublicToolTaskProfilePanel(Flowable):
-    """Task-by-tool dot plot showing how public tools were used for different work types."""
+    """Task-by-tool dot plot showing how public generative AI were used for different work types."""
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
@@ -1556,7 +1584,7 @@ class PublicToolTaskProfilePanel(Flowable):
 
 
 class AllToolTaskProfilePanel(Flowable):
-    """Task-by-tool dot plot comparing public tools and Copilot versions."""
+    """Task-by-tool dot plot comparing public generative AI and Copilot versions."""
     def __init__(self, width):
         Flowable.__init__(self)
         self.box_width = width
@@ -1694,7 +1722,7 @@ class SafeguardPrioritiesPanel(Flowable):
         self.items = [
             ("Information classification boundaries", "Users described uncertainty about what information was appropriate to enter."),
             ("Output validation", "Users pointed to the need to check outputs before relying on them."),
-            ("APS-specific sensitivity and safeguards", "Some responses highlighted differences between public tools and Copilot safeguards."),
+            ("APS-specific sensitivity and safeguards", "Some responses highlighted differences between public generative AI and Copilot safeguards."),
         ]
 
     def wrap(self, availWidth, availHeight):
@@ -1753,7 +1781,7 @@ class UncertaintyAreasPanel(Flowable):
             ("Commercial sensitivity",
              "Some respondents avoided uploading material that was allowed by classification but felt commercially sensitive."),
             ("Validation and APS safeguards",
-             "Respondents raised the need to check outputs and noted differences between public tools and Copilot safeguards."),
+             "Respondents raised the need to check outputs and noted differences between public generative AI and Copilot safeguards."),
         ]
 
     def wrap(self, availWidth, availHeight):
@@ -2243,7 +2271,7 @@ class KeyFindingBar(Flowable):
 class KeyFindingPillarCard(Flowable):
     """A premium numbered key-finding card with left accent bar and large number."""
 
-    _ACCENT_W = 4.0
+    _ACCENT_W = 0.0
     _NUM_SIZE_HERO = 28
     _NUM_SIZE_STD = 24
     _PAD_LEFT = PANEL_TOKENS.inset_md
@@ -2273,8 +2301,8 @@ class KeyFindingPillarCard(Flowable):
     def _build_paras(self):
         text_color = DEWR_DARK_GREY
 
-        title_fs = 14.5
-        title_ld = 17.0
+        title_fs = 12
+        title_ld = 15.0
         self._title_para = Paragraph(self.title_text, ParagraphStyle(
             "PillarTitle",
             fontName=FONT_BOLD,
@@ -2313,9 +2341,10 @@ class KeyFindingPillarCard(Flowable):
         self._title_h = th
         total = th + 8
 
+        bullet_gap = 3.4
         for bp in self._bullet_paras:
             _, bh = bp.wrap(cw, 10000)
-            total += bh + 2.4
+            total += bh + bullet_gap
 
         pad_top = PANEL_TOKENS.inset_sm
         pad_bottom = PANEL_TOKENS.inset_sm
@@ -2347,10 +2376,11 @@ class KeyFindingPillarCard(Flowable):
         self._title_para.drawOn(c, content_x, y - th)
         y -= th + 8
 
+        bullet_gap = 3.4
         for bp in self._bullet_paras:
             _, bh = bp.wrap(cw, 10000)
             bp.drawOn(c, content_x, y - bh)
-            y -= bh + 2.4
+            y -= bh + bullet_gap
 
         c.restoreState()
 
@@ -2374,28 +2404,32 @@ def header_footer(canvas, doc):
     canvas.line(doc.leftMargin, PAGE_CHROME.footer_line_y, A4[0] - doc.rightMargin, PAGE_CHROME.footer_line_y)
     canvas.setFont(FONT_REGULAR, PAGE_CHROME.footer_text_size)
     canvas.setFillColor(DEWR_DARK_GREY)
-    canvas.drawString(doc.leftMargin, PAGE_CHROME.footer_text_y,
-                      "Department of Employment and Workplace Relations")
     canvas.drawRightString(A4[0] - doc.rightMargin, PAGE_CHROME.footer_text_y,
                            f"Page {doc.page}")
 
+    note_style = ParagraphStyle(
+        "FooterSourceNote",
+        fontName=FONT_REGULAR,
+        fontSize=6.2,
+        leading=7.2,
+        textColor=DEWR_TEXT_GREY,
+        spaceBefore=0,
+        spaceAfter=0,
+    )
+    note_width = (A4[0] - doc.leftMargin - doc.rightMargin) - 40  # leave room for "Page X"
+
+    footer_notes = []
     if doc.page == COPILOT_TIME_SAVINGS_NOTE_PAGE:
-        note_style = ParagraphStyle(
-            "FooterSourceNote",
-            fontName=FONT_REGULAR,
-            fontSize=6.2,
-            leading=7.2,
-            textColor=DEWR_TEXT_GREY,
-            spaceBefore=0,
-            spaceAfter=0,
-        )
-        note_width = A4[0] - doc.leftMargin - doc.rightMargin
-        y = PAGE_CHROME.footer_line_y + 15
-        for note_text in reversed(COPILOT_TIME_SAVINGS_FOOTER_NOTES):
-            note = Paragraph(note_text, note_style)
-            _, note_h = note.wrap(note_width, 24)
-            note.drawOn(canvas, doc.leftMargin, y)
-            y += note_h + 2
+        footer_notes.extend(COPILOT_TIME_SAVINGS_FOOTER_NOTES)
+    footer_notes.extend(FooterNoteMarker._registry.get(doc.page, []))
+
+    # Render notes BELOW the footer line, top-down.
+    top_y = PAGE_CHROME.footer_line_y - 4
+    for note_text in footer_notes:
+        note = Paragraph(note_text, note_style)
+        _, note_h = note.wrap(note_width, 40)
+        note.drawOn(canvas, doc.leftMargin, top_y - note_h)
+        top_y -= note_h + 2
     canvas.restoreState()
 
 
@@ -2544,15 +2578,16 @@ def build_report():
 
     toc_ids = {}
 
-    def toc_heading(text, style, level=0):
+    def toc_heading(text, style, level=0, in_toc=True):
         base = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "section"
         count = toc_ids.get(base, 0) + 1
         toc_ids[base] = count
         key = base if count == 1 else f"{base}-{count}"
         paragraph = Paragraph(text, style)
-        paragraph._toc_text = text
-        paragraph._toc_level = level
-        paragraph._bookmark_name = key
+        if in_toc:
+            paragraph._toc_text = text
+            paragraph._toc_level = level
+            paragraph._bookmark_name = key
         return paragraph
 
     def red_bullet(text):
@@ -2686,7 +2721,7 @@ def build_report():
                 Paragraph("LOW EXPERIENCE", header_style),
             ],
             [
-                Paragraph("Public AI rated at least moderately useful", measure_style),
+                Paragraph("Public Generative AI rated at least moderately useful", measure_style),
                 Paragraph(marked_value("81.8%", "82.4%"), value_style_green),
                 Paragraph(marked_value("78.6%", "77.8%"), value_style_dark),
                 Paragraph("90.9%", value_style_dark),
@@ -2700,7 +2735,7 @@ def build_report():
                 Paragraph("84.6%", value_style_dark),
             ],
             [
-                Paragraph("Public AI used weekly or more", measure_style),
+                Paragraph("Public Generative AI used weekly or more", measure_style),
                 Paragraph(marked_value("54.5%", "52.9%"), value_style_green),
                 Paragraph(marked_value("50.0%", "51.9%"), value_style_dark),
                 Paragraph("77.3%", value_style_dark),
@@ -2714,7 +2749,7 @@ def build_report():
                 Paragraph("64.1%", value_style_dark),
             ],
             [
-                Paragraph("Public AI added value beyond Copilot", measure_style),
+                Paragraph("Public Generative AI added value beyond Copilot", measure_style),
                 Paragraph(marked_value("75.0%", "73.5%"), value_style_dark),
                 Paragraph(marked_value("82.1%", "81.5%"), value_style_green),
                 Paragraph("90.9%", value_style_dark),
@@ -2869,12 +2904,12 @@ def build_report():
         ]))
         return finding_table
 
-    story.append(toc_heading("Preface", copilot_section_header, 1))
+    story.append(toc_heading("Preface", copilot_section_header, 1, in_toc=False))
     story.append(Paragraph(
         "The AI Plan for the Australian Public Service outlines a clear expectation that the APS "
         "will utilise AI to improve the way we deliver for the Australian Public. It also outlines "
         "an expectation that the APS will utilise Public Generative AI safely and ethically. The "
-        "insights from this trial will support DEWR to make strategic decisions about the future "
+        "insights from this trial of Public Generative AI tools will support DEWR to make strategic decisions about the future "
         "AI services available to our people and will inform DEWR’s AI Strategy.",
         body))
     story.append(Paragraph(
@@ -2886,7 +2921,7 @@ def build_report():
         body))
     story.append(Paragraph(
         "In January 2026, DEWR ran a trial in which 5% of employees were provided access to "
-        "Public Generative AI tools, in addition to their existing copilot access, for a period "
+        "Public Generative AI, in addition to their existing copilot access, for a period "
         "of 6 weeks. The trial cohort was selected at random and stratified to ensure "
         "representation across Groups, across Copilot Chat and M365 Copilot users, and across APS "
         "levels. The tools were the free versions of Open AI’s ChatGPT, Google’s Gemini, and "
@@ -2904,16 +2939,16 @@ def build_report():
         body))
     story.append(Paragraph("1. the current productivity of Copilot (both versions)", body))
     story.append(Paragraph(
-        "2. whether the Public Generative AI tools provided additional value beyond Copilot",
+        "2. whether the Public Generative AI provided additional value beyond Copilot",
         body))
     story.append(Paragraph(
-        "3. the relative utility of each of the selected Public Generative AI tools",
+        "3. the relative utility of each of the selected Public Generative AI",
         body))
     story.append(Paragraph(
-        "4. the potential productivity benefits from the Public Generative AI tools",
+        "4. the potential productivity benefits from the Public Generative AI",
         body))
     story.append(Paragraph(
-        "5. the risks and degree of concern around the Public Generative AI tools and AI generally",
+        "5. the risks and degree of concern around the Public Generative AI and AI generally",
         body))
     story.append(Paragraph(
         "In total, 104 trial participants (52%) responded to the survey.",
@@ -2924,13 +2959,13 @@ def build_report():
     # KEY FINDINGS
     # ==============================
     story.append(KeepTogether([
-        toc_heading("Key findings", copilot_section_header, 1),
+        toc_heading("Key findings", copilot_section_header, 1, in_toc=False),
         after_note_gap(),
         pillar_card(
             1,
             "Microsoft Copilot",
             [
-                "<b>Copilot already saves us 3 to 6 hours per week.</b> M365 Copilot users saved nearly 6 hours a week (about 15%), almost double the 2.8 hours a week (about 8%) reported by Copilot Chat users. As a result, an M365 license pays for itself within the first two weeks.",
+                "<b>Copilot already saves us 3 to 6 hours per week.</b> M365 Copilot users saved nearly 6 hours a week (about 15%), almost double the 2.8 hours a week (about 8%) reported by Copilot Chat users. As a result, an M365 licence pays for itself within the first two weeks.",
                 "<b>All versions of Copilot were used for summarising, editing and revision, and drafting.</b> Compared to Copilot Chat, M365 Copilot was used more for complex knowledge work such as research, problem solving and ideation (67.7% of users, compared to 43.6% of Chat users), and for planning or meeting preparation (35.5% of users compared to 12.8% of Chat).",
                 "<b>M365 Copilot is associated with higher reported productivity across both workforce segments and organisational groups.</b> Corporate and Enabling, Employment and Workforce, and Skills groups reported the largest relative uplifts (2.5x, 2.2x, and 1.9x respectively), while Workplace Relations reported only slightly higher productivity over Copilot Chat (1.2x). Across the department, EL users reported M365 Copilot time savings at 2.7x the rate of Copilot Chat users, compared with 1.7x for APS users.",
             ],
@@ -2939,11 +2974,11 @@ def build_report():
         Spacer(1, 10),
         pillar_card(
             2,
-            "Public Generative AI tools: ChatGPT, Gemini, and Claude",
+            "Public Generative AI: ChatGPT, Gemini, and Claude",
             [
-                "<b>Public generative AI tools were used mainly for core knowledge-work tasks, especially research, summarising, editing and drafting.</b> Claude had the strongest research profile, with 73.2% of Claude users using it for research, problem solving or ideation, while ChatGPT and Gemini were used more broadly across common writing and information tasks. Public generative AI was used much less for planning and meeting preparation, highlighting a key limitation of the public tools for tasks that depend on integration with department systems.",
-                "<b>ChatGPT had the widest uptake (92% of users), but Claude showed the strongest usefulness signal.</b> Claude was rated at least very useful by 46.3% of users (compared to 29.7% for Gemini and 28.6% for ChatGPT), and was the most requested tool to continue after the trial (63%, compared to 54% and 43% for ChatGPT and Gemini). Overall, demand for continued access to at least one of the public tools was strong (72%), with experienced or highly experienced AI users more emphatic than less experienced users. This suggests staff benefit from access to different tools for different types of work, rather than there being a single best option.",
-                "<b>Most users (92%) reported at least one limitation from the public tools.</b> The main barriers were a lack of integration with department systems (49%) and the usage limits of the free tools (41%). Usage caps were especially common among experienced users (60%), indicating that the free versions were most likely to constrain staff who had the capability to identify higher-value use cases and use the tools more productively.",
+                "<b>Public Generative AI were used mainly for core knowledge-work tasks, especially research, summarising, editing and drafting.</b> Claude had the strongest research profile, with 73.2% of Claude users using it for research, problem solving or ideation, while ChatGPT and Gemini were used more broadly across common writing and information tasks. Public Generative AI was used much less for planning and meeting preparation, highlighting a key limitation of public generative AI for tasks that depend on integration with department systems.",
+                "<b>ChatGPT had the widest uptake (92% of users), but Claude showed the strongest usefulness signal.</b> Claude was rated at least very useful by 46.3% of users (compared to 29.7% for Gemini and 28.6% for ChatGPT), and was the most requested tool to continue after the trial (63%, compared to 54% and 43% for ChatGPT and Gemini). Overall, demand for continued access to at least one of public generative AI was strong (72%), with experienced or highly experienced AI users more emphatic than less experienced users. This suggests staff benefit from access to different tools for different types of work, rather than there being a single best option.",
+                "<b>Most users (92%) reported at least one limitation from public generative AI.</b> The main barriers were a lack of integration with department systems (49%) and the usage limits of the free tools (41%). Usage caps were especially common among experienced users (60%), indicating that the free versions were most likely to constrain staff who had the capability to identify higher-value use cases and use the tools more productively.",
                 "<b>Most respondents (75%) were comfortable using the tools, but key concerns were raised.</b> Ethical considerations were more commonly reported (12% of respondents) than security concerns (3% of respondents). Users who were more comfortable with the tools were more likely to use more 'risky' features such as uploading files (48%) than users who were not comfortable (27%). Education and training play a key role in building comfort. Key concerns related to uncertainty about what information could be entered and how to validate results. Similarly, staff who rated the introductory guidance and splash screens as effective were more likely to be comfortable (82.5%) than those who did not (60%). Future risk mitigation may benefit more from clearer guidance, clarifying boundary cases and strengthening user judgement than from expanding technical controls alone.",
             ],
         ),
@@ -2993,10 +3028,10 @@ def build_report():
         "savings in high-frequency tasks such as summarising, drafting and meeting support.",
         body))
     story.append(Paragraph(
-        "As of 1 July 2026, the cost for an M365 license is expected to be $299.54 per year. The "
+        "As of 1 July 2026, the cost for an M365 licence is expected to be $299.54 per year. The "
         "average APS employee earns $114,938 per year, which, spread across approximately 250 "
         "working days, equates to approximately $61 per hour. Given that M365 Copilot saves an "
-        "additional 2.9 hours per week compared to Copilot Chat, a license starts to deliver "
+        "additional 2.9 hours per week compared to Copilot Chat, a licence starts to deliver "
         "productivity increases by the end of the second week.",
         body))
     story.append(PageBreak())
@@ -3038,9 +3073,9 @@ def build_report():
     ))
     story.append(tight_gap())
     story.append(figure_label("M365 Copilot Time Savings and Licence Reach by APS Level"))
-    story.append(source_note(
-        "Note: M365 Value = The relative time savings reported for M365 license holders compared to Copilot Chat users. "
-        "M365 licence = The proportion of each group who have an M365 license."))
+    story.append(FooterNoteMarker(
+        "Note: M365 Value = The relative time savings reported for M365 licence holders compared to Copilot Chat users. "
+        "M365 licence = The proportion of each group who have an M365 licence."))
     story.append(PageBreak())
     story.append(Paragraph("By Group", body_bold))
     story.append(sp(4))
@@ -3058,7 +3093,7 @@ def build_report():
     ))
     story.append(tight_gap())
     story.append(figure_label("M365 Copilot value and licence reach by organisational group"))
-    story.append(source_note(
+    story.append(FooterNoteMarker(
         "Note: M365 value = relative time savings for M365 licence holders vs Copilot Chat users; "
         "M365 licence = proportion of each group with an M365 licence. "
         "Jobs and Skills Australia was excluded because of low sample size."))
@@ -3086,23 +3121,23 @@ def build_report():
         figure_label("Task footprint by Copilot version"),
     ]))
 
-    # Section 2: Public AI
+    # Section 2: Public Generative AI
     story.append(PageBreak())
-    story.append(toc_heading("Public Gen AI uptake and use", copilot_section_header, 1))
+    story.append(toc_heading("Public Generative AI uptake and use", copilot_section_header, 1))
     story.append(callout(
-        "Public AI provided additional value beyond Copilot, especially for broad knowledge work, "
+        "Public Generative AI provided additional value beyond Copilot, especially for broad knowledge work, "
         "but the benefit was capability-dependent and constrained by lack of integration, free-tool "
         "limits, and user uncertainty at practical risk boundaries."))
     story.append(ValueSignalsPanel(width, [
-        ("80%", "Rated at least one public tool useful"),
-        ("72%", "Said public tools add value beyond Copilot"),
+        ("80%", "Rated at least one public generative AI useful"),
+        ("72%", "Said public generative AI add value beyond Copilot"),
         ("72%", "Wanted continued access"),
-        ("53%", "Used public tools at least weekly"),
+        ("53%", "Used public generative AI at least weekly"),
     ], primary_count=1))
     story.append(sp(9))
     story.append(Paragraph(
-        "A total of 61 survey respondents indicated that they used one of the Public Generative AI "
-        "tools during the trial and answered questions about how they used it, how often, and how "
+        "A total of 61 survey respondents indicated that they used Public Generative AI "
+        "during the trial and answered questions about how they used it, how often, and how "
         "much time they believed it saved them.", section_intro))
 
     # Tool comparison
@@ -3132,20 +3167,20 @@ def build_report():
         first_col_ratio=0.43,
     ))
     story.append(tight_gap())
-    story.append(figure_label("Public AI Tool Usage and Usefulness by Tool"))
+    story.append(figure_label("Public Generative AI Tool Usage and Usefulness by Tool"))
 
     # Task types
     story.append(CondPageBreak(320))
-    story.append(Paragraph("Public tools were mainly used for broad knowledge work", h3))
+    story.append(Paragraph("Public Generative AI were mainly used for broad knowledge work", h3))
     story.append(Paragraph(
         "Use clustered around general knowledge-work tasks rather than specialised or "
         "administrative workflows. Research, summarising, editing and drafting were the "
-        "dominant use cases for public tools, while Copilot was still more commonly used for "
+        "dominant use cases for public generative AI, while Copilot was still more commonly used for "
         "summarising, editing and revision, and drafting tasks.", body))
     story.append(visual_spacer())
     story.append(AllToolTaskProfilePanel(width))
     story.append(tight_gap())
-    story.append(figure_label("Task Footprint across Public AI Tools and Copilot Versions"))
+    story.append(figure_label("Task Footprint across Public Generative AI Tools and Copilot Versions"))
     story.append(after_figure_label_gap())
     story.append(Paragraph(
         "Tool use profiles varied by task. Claude had the strongest research profile, with "
@@ -3157,62 +3192,62 @@ def build_report():
         "13.5% for Gemini and 10.7% for ChatGPT, suggesting a stronger specialist-use profile."))
     story.append(bullet(
         "<b>Research, problem solving and ideation:</b> Claude reached 73.2%, ahead of "
-        "M365 Copilot and well ahead of Copilot Chat, suggesting public tools can compete "
+        "M365 Copilot and well ahead of Copilot Chat, suggesting public generative AI can compete "
         "with licensed tools for complex knowledge work."))
     story.append(bullet(
         "<b>Planning and meeting preparation:</b> M365 Copilot was substantially higher than "
-        "Copilot Chat and the public tools, suggesting integration with email, SharePoint "
+        "Copilot Chat and public generative AI, suggesting integration with email, SharePoint "
         "and meetings remains a clear M365 advantage."))
 
     story.append(CondPageBreak(220))
     story.append(Paragraph("Most staff want to continue using the Public Generative AI", h3))
     story.append(Paragraph(
-        "<b>72% of respondents</b> wanted continued access to at least one public tool, but "
+        "<b>72% of respondents</b> wanted continued access to at least one public generative AI, but "
         "demand was uneven across tools and user groups.",
         body))
     story.append(Paragraph(
         "Claude recorded the highest continuation demand, followed by ChatGPT and then Gemini, "
-        "showing a clear step-down in interest across the three public tools.",
+        "showing a clear step-down in interest across the three public generative AI.",
         body))
     story.append(visual_spacer())
     story.append(ContinuationDemandPanel(width))
     story.append(tight_gap())
-    story.append(figure_label("Demand for Continued Access by Public AI Tool"))
+    story.append(figure_label("Demand for Continued Access by Public Generative AI Tool"))
     story.append(after_figure_label_gap())
     story.append(bullet(
-        "M365 Copilot users were less likely to want to continue using the public tools "
+        "M365 Copilot users were less likely to want to continue using public generative AI "
         "than Copilot Chat users."))
     story.append(bullet(
         "Claude was the most requested tool to continue after the trial, and interest in "
         "continuing Claude was higher among M365 Copilot users than Copilot Chat users."))
     story.append(PageBreak())
-    story.append(toc_heading("Productivity from Public Gen AI", copilot_section_header, 1))
+    story.append(toc_heading("Productivity from Public Generative AI", copilot_section_header, 1))
     story.append(callout(
-        "Public Gen AI productivity gains were real but capability-dependent: value was strongest "
+        "Public Generative AI productivity gains were real but capability-dependent: value was strongest "
         "among experienced AI users, staff without M365 Copilot access, and tasks where public "
-        "tools offered capability beyond Copilot, positioning them as a complement to enterprise "
+        "generative AI offered capability beyond Copilot, positioning it as a complement to enterprise "
         "AI rather than a replacement."))
     story.append(sp(9))
-    story.append(Paragraph("Copilot Chat and M365 Copilot users get different value from Public Gen AI tools", h3_after_callout))
+    story.append(Paragraph("Copilot Chat and M365 Copilot users get different value from Public Generative AI", h3_after_callout))
     story.append(Paragraph(
-        "Overall, both M365 Copilot and Copilot Chat users rated the Public Generative AI tools as useful at "
-        "comparable levels. M365 license holders, who were more likely to rate Copilot as useful and to use it "
-        "more frequently, were also more likely to report getting more value out of the Public Gen AI tools on top "
+        "Overall, both M365 Copilot and Copilot Chat users rated the Public Generative AI as useful at "
+        "comparable levels. M365 licence holders, who were more likely to rate Copilot as useful and to use it "
+        "more frequently, were also more likely to report getting more value out of the Public Generative AI on top "
         "of Copilot.",
         body))
     story.append(Paragraph(
-        "Furthermore, while they reported value from the Public Gen AI tools, they used them at a comparable rate "
+        "Furthermore, while they reported value from Public Generative AI, they used it at a comparable rate "
         "to Copilot Chat users. This suggests that M365 Copilot users, who tend to be more experienced AI users, "
-        "were better equipped to find complementary use cases for the public tools while continuing to use Copilot "
+        "were better equipped to find complementary use cases for public generative AI while continuing to use Copilot "
         "frequently. In contrast, Copilot Chat users may have been more likely to substitute Copilot for the "
-        "Public tools.",
+        "Public Generative AI.",
         body))
     story.append(visual_spacer())
     story.append(KeepTogether([
         access_evidence_table(),
         tight_gap(),
-        figure_label("Public AI and Copilot Ratings"),
-        source_note(
+        figure_label("Public Generative AI and Copilot Ratings"),
+        FooterNoteMarker(
             "Note: High Experience = Highly Experienced or Experienced; "
             "Low Experience = Some or No or Basic Experience."
         ),
@@ -3225,9 +3260,9 @@ def build_report():
         Paragraph("Experienced users gained more value", h3),
         Paragraph(
             "Prior Gen AI experience was also associated with stronger reported outcomes. Experienced and highly "
-            "experienced respondents were more likely to report significant added value from public tools than "
+            "experienced respondents were more likely to report significant added value from public generative AI than "
             "respondents with lower levels of prior Gen AI experience. Higher-experience users also reported "
-            "deeper usefulness: 73% rated at least one public tool very or extremely useful, compared with 46% "
+            "deeper usefulness: 73% rated at least one public generative AI very or extremely useful, compared with 46% "
             "some prior Gen AI experience and 39% no/basic prior Gen AI experience.", body),
         visual_spacer(),
         EvidenceMatrixPanel(
@@ -3240,9 +3275,9 @@ def build_report():
             ],
             [
                 ("Reported some or significant added value over Copilot", ["91%", "73%", "67%"], 0),
-                ("Rated at least one public tool very or extremely useful", ["73%", "46%", "39%"], 0),
+                ("Rated at least one public generative AI very or extremely useful", ["73%", "46%", "39%"], 0),
                 ("Strongly wanted continued access", ["55%", "31%", "15%"], 0),
-                ("Rated a public tool better than Copilot on at least one dimension", ["86%", "69%", "69%"], 0),
+                ("Rated a public generative AI better than Copilot on at least one dimension", ["86%", "69%", "69%"], 0),
             ],
             first_col_ratio=0.44,
             row_h=30,
@@ -3253,14 +3288,14 @@ def build_report():
     ]))
     story.append(after_figure_label_gap())
     story.append(Paragraph(
-        "They were also more likely to rate at least one public tool better than Copilot on at least one "
+        "They were also more likely to rate at least one public generative AI better than Copilot on at least one "
         "comparison dimension, such as output quality, time savings or responsiveness, and to strongly want "
         "continued access.",
         body))
     story.append(Paragraph(
         "This pattern is consistent with experience acting as an enabling factor for value realisation. While "
         "the results are not causal, they suggest that capability uplift may increase the likelihood that staff "
-        "can identify higher-value use cases and realise more benefits from both enterprise and public AI tools, "
+        "can identify higher-value use cases and realise more benefits from both enterprise and public generative AI, "
         "although some of this relationship may also reflect differences in role, task complexity, or pre-existing "
         "digital capability.",
         body))
@@ -3270,8 +3305,8 @@ def build_report():
         Paragraph("Executive level employees got more value from the tools than APS staff", h3),
         tight_gap(),
         Paragraph(
-            "EL users were more likely than APS users to say public tools added value beyond Copilot, "
-            "despite similar usage frequency, while APS users were more likely to rate the public tools "
+            "EL users were more likely than APS users to say public generative AI added value beyond Copilot, "
+            "despite similar usage frequency, while APS users were more likely to rate public generative AI "
             "as at least moderately useful.",
             body),
         visual_spacer(),
@@ -3281,8 +3316,8 @@ def build_report():
             ["APS level", "EL level"],
             [
                 ("Added value beyond Copilot", ["66.7%", "78.6%"], 1),
-                ("Public tools used weekly or more", ["51.5%", "53.6%"], 1),
-                ("Public tools rated at least moderately useful", ["87.9%", "71.4%"], 0),
+                ("Public Generative AI used weekly or more", ["51.5%", "53.6%"], 1),
+                ("Public Generative AI rated at least moderately useful", ["87.9%", "71.4%"], 0),
                 ("Copilot rated at least moderately useful", ["84.8%", "75.0%"], 0),
             ],
             first_col_ratio=0.58,
@@ -3290,7 +3325,7 @@ def build_report():
             header_body_gap=6,
         ),
         tight_gap(),
-        figure_label("Public AI and Copilot Ratings by APS Level"),
+        figure_label("Public Generative AI and Copilot Ratings by APS Level"),
     ]))
     story.append(after_figure_label_gap())
     story.append(Paragraph(
@@ -3304,16 +3339,16 @@ def build_report():
         Paragraph("Organisational group", mini_heading),
         tight_gap(),
         Paragraph(
-            "Group-level results suggest that Copilot usefulness and perceived added value from Public Gen AI "
+            "Group-level results suggest that Copilot usefulness and perceived added value from Public Generative AI "
             "were not always aligned. Workplace Relations recorded the strongest added-value result, with "
-            "85.7% saying Public Gen AI provided value beyond Copilot, compared with 78.6% rating Copilot "
+            "85.7% saying Public Generative AI provided value beyond Copilot, compared with 78.6% rating Copilot "
             "as at least moderately useful.", body),
         sp(4),
         Paragraph(
             "By contrast, Corporate and Enabling and Employment and Workforce recorded high Copilot "
-            "usefulness but lower added-value results for Public Gen AI. Skill and Training recorded the "
+            "usefulness but lower added-value results for Public Generative AI. Skills and Training recorded the "
             "weakest results on both measures, suggesting lower perceived value across both Copilot and "
-            "Public Gen AI rather than a pattern specific to Public Gen AI alone.", body),
+            "Public Generative AI rather than a pattern specific to Public Generative AI alone.", body),
         visual_spacer(),
         EvidenceMatrixPanel(
             width,
@@ -3322,14 +3357,14 @@ def build_report():
             [
                 ("Corporate and Enabling", ["66.7%", "83.3%"], 1),
                 ("Employment and Workforce", ["73.7%", "84.2%"], 1),
-                ("Skill and Training", ["53.8%", "69.2%"], None),
+                ("Skills and Training", ["53.8%", "69.2%"], None),
                 ("Workplace Relations", ["85.7%", "78.6%"], 0),
             ],
             first_col_ratio=0.32,
         ),
         tight_gap(),
         figure_label("Copilot Ratings by Organisational Group"),
-        source_note("Note: Jobs and Skills Australia was excluded because of low sample size."),
+        FooterNoteMarker("Note: Jobs and Skills Australia was excluded because of low sample size."),
     ]))
 
     # 2.6 Barriers
@@ -3338,13 +3373,13 @@ def build_report():
     story.append(tight_gap())
     story.append(Paragraph(
         "<b><font color=\"#404246\">92%</font></b> of respondents reported at least one limitation "
-        "with at least one public AI tool. Limitations were widespread but concentrated in two "
+        "with at least one public generative AI. Limitations were widespread but concentrated in two "
         "practical barriers.",
         body))
     story.append(Paragraph("Integration was a common barrier", mini_heading))
     story.append(bullet("49% of survey respondents reported lack of integration as a barrier."))
     story.append(bullet(
-        "This prevented users from seamlessly working between DEWR systems and the Public Generative AI tools."))
+        "This prevented users from seamlessly working between DEWR systems and the Public Generative AI."))
     story.append(bullet(
         "Lack of integration was common across all three tools, affecting 48% of ChatGPT users, "
         "49% of Gemini users and 51% of Claude users."))
@@ -3354,7 +3389,7 @@ def build_report():
     story.append(bullet("This included instances where a limit was reached and work needed to stop."))
     story.append(bullet(
         "Limits were more acute for experienced users, with 59.1% of experienced and highly experienced AI users "
-        "reporting caps as an issue when using the public tools."))
+        "reporting caps as an issue when using public generative AI."))
     story.append(bullet("This compares with only 30.8% of less experienced users reporting this limitation."))
     story.append(bullet(
         "Free prompt or request limits were more concentrated in ChatGPT, reported by 36% of ChatGPT users, "
@@ -3369,7 +3404,7 @@ def build_report():
         ("Fabricated content or hallucinations", 15),
     ], max_value=100, primary_count=2, row_h=CHART_LAYOUT.row_height_dense))
     story.append(tight_gap())
-    story.append(figure_label("Reported Limitations of Public AI Tools"))
+    story.append(figure_label("Reported Limitations of Public Generative AI Tools"))
 
     # Concerns, risks and safeguards
     story.append(CondPageBreak(300))
@@ -3379,14 +3414,14 @@ def build_report():
         "results suggest safety communications and splash screens supported cautious use, while "
         "data-handling risks were mainly visible through copy and paste behaviour and user judgement."))
     story.append(ValueSignalsPanel(width, [
-        ("75%", "Comfortable or very comfortable using public tools"),
-        ("25%", "Uncomfortable using public tools"),
+        ("75%", "Comfortable or very comfortable using public generative AI"),
+        ("25%", "Uncomfortable using public generative AI"),
         (marked_value("12%", "11%"), "Ethical concerns encountered"),
         ("3%", "Reported specific security concerns"),
     ], primary_count=1))
     story.append(sp(9))
     story.append(Paragraph(
-        "All respondents were asked about any concerns they have with the public tools. They were "
+        "All respondents were asked about any concerns they have with public generative AI. They were "
         "also provided an opportunity to opt out of using the tools if they had concerns. The "
         "results suggest that future risk mitigation may benefit more from clarifying boundary "
         "cases and strengthening user judgement than from further restricting access or expanding "
@@ -3398,7 +3433,7 @@ def build_report():
         "Most respondents were comfortable with the tools, though concerns were raised and guidance quality shaped perceptions.",
         h3))
     story.append(Paragraph(
-        "75% of respondents were comfortable or very comfortable using the public tools; 25% "
+        "75% of respondents were comfortable or very comfortable using public generative AI; 25% "
         "were uncomfortable. Concerns and comfort were not mutually exclusive, two-thirds of "
         "respondents who raised concerns were still comfortable using the tools. Of all "
         "respondents:",
@@ -3432,7 +3467,7 @@ def build_report():
         "boundary cases and strengthening user judgement than from further restricting access or "
         "expanding technical controls alone.", body))
 
-    story.append(Paragraph("Comfort shaped data-sharing behaviour when using public AI tools", h3))
+    story.append(Paragraph("Comfort shaped data-sharing behaviour when using public generative AI", h3))
     story.append(Paragraph(
         "Users were advised not to upload classified information and Data Loss Protection was established "
         "to ensure classified information could not be uploaded. All users preferred copy-and-paste to "
@@ -3442,7 +3477,7 @@ def build_report():
     story.append(visual_spacer())
     story.append(ComfortDataHandlingPanel(width))
     story.append(tight_gap())
-    story.append(figure_label("Data Sharing Behaviour by Comfort with Public AI Tools"))
+    story.append(figure_label("Data Sharing Behaviour by Comfort with Public Generative AI Tools"))
     story.append(Paragraph("Safety communications were rated effective by most survey respondents", h3))
     story.append(tight_gap())
     story.append(ValueSignalsPanel(width, [
@@ -3567,10 +3602,10 @@ def build_report():
     story.append(Paragraph("Goal and scope", appendix_subheading))
     for text in [
         "The Public Generative AI Trial was designed to provide an evidence base to inform departmental decisions on the adoption and governance of publicly available generative AI tools within DEWR.",
-        "The primary goal of the trial was to assess whether access to selected public generative AI tools, specifically ChatGPT, Gemini, and Claude, provided additional value to staff when used alongside existing enterprise-supported tools (Microsoft Copilot Chat and M365 Copilot), including their perceived impact on productivity and common knowledge-work tasks.",
-        "The trial also aimed to compare the relative utility of different public tools, and to identify key risks, limitations and user concerns associated with their use in a government context, including the effectiveness of safeguards and guidance.",
+        "The primary goal of the trial was to assess whether access to selected public generative AI, specifically ChatGPT, Gemini, and Claude, provided additional value to staff when used alongside existing enterprise-supported tools (Microsoft Copilot Chat and M365 Copilot), including their perceived impact on productivity and common knowledge-work tasks.",
+        "The trial also aimed to compare the relative utility of different public generative AI, and to identify key risks, limitations and user concerns associated with their use in a government context, including the effectiveness of safeguards and guidance.",
         "The trial did not seek to establish causal estimates of productivity impacts or to measure realised efficiency gains at an organisational level. Instead, it focused on capturing self-reported measures of usefulness, time savings, and behavioural patterns, alongside qualitative signals on risks and limitations. Findings should therefore be interpreted as indicative of user experience and perceived value.",
-        "Collectively, the trial was intended to inform DEWR's broader AI strategy, including decisions on future access to public generative AI tools, their role relative to enterprise tools, and the governance settings required to support safe use.",
+        "Collectively, the trial was intended to inform DEWR's broader AI strategy, including decisions on future access to public generative AI, their role relative to enterprise tools, and the governance settings required to support safe use.",
     ]:
         story.append(Paragraph(text, body))
     story.append(Paragraph("Sampling", appendix_subheading))
@@ -3587,7 +3622,7 @@ def build_report():
     story.append(toc_heading("Appendix 4: Survey Design and Response", copilot_section_header, 1))
     story.append(Paragraph("Survey design and administration", appendix_subheading))
     for text in [
-        "The survey was developed to capture participants' experiences of the Public Generative AI trial and to inform senior executive consideration of whether DEWR should enable or expand access to public generative AI tools as part of its broader AI Strategy. The questionnaire assessed participants' views on the tools' effectiveness, usability, perceived productivity benefits, risks, and strategic value.",
+        "The survey was developed to capture participants' experiences of the Public Generative AI trial and to inform senior executive consideration of whether DEWR should enable or expand access to public generative AI as part of its broader AI Strategy. The questionnaire assessed participants' views on the tools' effectiveness, usability, perceived productivity benefits, risks, and strategic value.",
         "The survey was administered through Microsoft Forms. A survey link was emailed to trial participants' DEWR email addresses on 3 March, in the week following the conclusion of the trial. The invitation was sent from the Chief Data Officer and AI Accountable Official's mailbox and requested responses by 13 March. The survey was extended to 20 March and reminder emails were sent to participants who had not yet responded on 11 March and 18 March.",
         "At the close of the survey period, responses were exported from Microsoft Forms in CSV format. A de-identified copy, with respondent names and email addresses removed, was then used for analysis.",
     ]:
@@ -3603,7 +3638,7 @@ def build_report():
             ("<b>Level</b>", "", ""),
             ("EL", "45%", "50%"),
             ("APS", "55%", "50%"),
-            ("<b>Copilot license type</b>", "", ""),
+            ("<b>Copilot licence type</b>", "", ""),
             ("M365 Copilot", "43%", "54%"),
             ("Copilot Chat", "58%", "46%"),
             ("<b>Group</b>", "", ""),
@@ -3615,7 +3650,7 @@ def build_report():
         [width * 0.42, width * 0.29, width * 0.29],
     ))
     story.append(sp(8))
-    story.append(source_note("Note: Jobs and Skills Australia and Unique Student Identifier staff were included in the trial, but at not at sufficient numbers to be reported separately."))
+    story.append(FooterNoteMarker("Note: Jobs and Skills Australia and Unique Student Identifier staff were included in the trial, but at not at sufficient numbers to be reported separately."))
     story.append(PageBreak())
     story.append(Paragraph("Respondent profile from survey-only fields", appendix_subheading))
     story.append(appendix_table(
@@ -3650,23 +3685,23 @@ def build_report():
         [
             (
                 "<b>Participants in the trial</b>",
-                "61 respondents (59%) used at least one public Gen AI tool during the trial. "
+                "61 respondents (59%) used at least one public generative AI during the trial. "
                 "Respondents were treated as participating if they answered yes to Q6 and also "
                 "reported using ChatGPT, Gemini or Claude.",
             ),
             (
                 "<b>Non-participants in the trial</b>",
-                "33 respondents (31.7%) did not use any Public Generative AI tools during the trial. "
+                "33 respondents (31.7%) did not use any Public Generative AI during the trial. "
                 "They were still asked general questions and final survey questions.",
             ),
             (
                 "<b>Users of Copilot</b>",
-                "Copilot usage was analysed for the 71 respondents who said they participated in the trial. "
+                "Copilot usage was analysed for the 61 respondents who said they participated in the trial. "
                 "This included 30 respondents with M365 Copilot (42%) and 31 with Copilot Chat only (58%).",
             ),
             (
                 "<b>Users with concerns about AI</b>",
-                "Included trial participants who raised concerns about Public Gen AI tools and non-participants "
+                "Included trial participants who raised concerns about Public Generative AI and non-participants "
                 "who declined to participate because of security, confidentiality or related concerns.",
             ),
         ],
@@ -3690,16 +3725,16 @@ def build_report():
         ["Section", "Question", "Response options"],
         [
             ("Section 1: General questions", "<b>1. What is your APS level?*</b> Single choice", "Select your answer (APS2–SES)"),
-            ("Section 1: General questions", "<b>2. What Group are you in?*</b> Single choice", "Corporate and Enabling; Employment and Workforce; Jobs and Skills Australia; Skill and Training; Workplace Relations"),
+            ("Section 1: General questions", "<b>2. What Group are you in?*</b> Single choice", "Corporate and Enabling; Employment and Workforce; Jobs and Skills Australia; Skills and Training; Workplace Relations"),
             ("Section 1: General questions", "<b>3. What is your Job Family?*</b> As per the APS Job Family Framework. Single choice", "Select your answer (From 15 Job Families)"),
             ("Section 1: General questions", "<b>4. What is your Job Title?*</b> Single line text", "Free text"),
             ("Section 1: General questions", "<b>5. Before the trial, what was your level of experience using Gen AI tools, at work or in your own personal time?*</b> Likert", "No experience at all; Basic familiarity; Some experience; Experienced; Highly experienced"),
-            ("Section 1: General questions", "<b>6. Did you participate in the Public Gen AI Trial by using any of the tools?*</b> The public Generative AI tools in the trial were ChatGPT, Gemini, and Claude. Single choice", "Yes — skip to Q8; No"),
-            ("Section 1: General questions", "<b>7. If you did not use the Public Gen AI tools, what were the reasons?*</b> Multiple choice", "Didn’t have time; Wasn’t sure what I could use them for; Concerned about security/confidentiality; Didn’t know how to use them; Other. Any answer skip to Section 5 Q42 “Final Section”"),
-            ("Section 1: General questions", "<b>8. How frequently did you use the Public Gen AI tools during the trial?*</b> Single choice", "Not at all; A few times a month; A few times a week; A few times a day; Most of the day"),
+            ("Section 1: General questions", "<b>6. Did you participate in the Public Generative AI Trial by using any of the tools?*</b> The public generative AI in the trial included ChatGPT, Gemini, and Claude. Single choice", "Yes — skip to Q8; No"),
+            ("Section 1: General questions", "<b>7. If you did not use the Public Generative AI, what were the reasons?*</b> Multiple choice", "Didn’t have time; Wasn’t sure what I could use them for; Concerned about security/confidentiality; Didn’t know how to use them; Other. Any answer skip to Section 5 Q42 “Final Section”"),
+            ("Section 1: General questions", "<b>8. How frequently did you use the Public Generative AI during the trial?*</b> Single choice", "Not at all; A few times a month; A few times a week; A few times a day; Most of the day"),
             ("Section 1: General questions", "<b>9. Over the course of the trial, did your level of experience with Gen AI improve?*</b> Likert", "Not at All; A Little; Moderately; A Lot; Significantly"),
-            ("Section 1: General questions", "<b>10. Did you upload documents to the Public Gen AI tools?*</b> Such as word documents, pdfs, or powerpoint presentations. Single choice", "Yes; No"),
-            ("Section 1: General questions", "<b>11. Did you copy and paste information into the Public Gen AI tools?*</b> Such as text from emails, meeting notes, code, data, images. Single choice", "Yes; No"),
+            ("Section 1: General questions", "<b>10. Did you upload documents to the Public Generative AI?*</b> Such as word documents, pdfs, or powerpoint presentations. Single choice", "Yes; No"),
+            ("Section 1: General questions", "<b>11. Did you copy and paste information into the Public Generative AI?*</b> Such as text from emails, meeting notes, code, data, images. Single choice", "Yes; No"),
             ("Section 2: Copilot questions", "<b>12. Do you have access to M365 Copilot at work?</b> All DEWR staff have access to Microsoft Copilot Chat. M365 Copilot is the subscription version of Copilot available to some staff. M365 Copilot has more functionality and cross application integration than Microsoft Copilot Chat. Single choice", "Yes; No; Unknown"),
             ("Section 2: Copilot questions", "<b>13. How frequently do you use Copilot at work?*</b> For this question and questions that follow, “Copilot” is used as a combined term covering both Microsoft Copilot Chat and M365 Copilot. Single choice", "Not at all; A few times a month; A few times a week; A few times a day; Most of the day"),
             ("Section 2: Copilot questions", "<b>14. What do you use Copilot for?</b> Select all that apply. Multiple choice", "Drafting; Summarising; Editing and Revision; Research, Problem Solving or Generating Ideas; Planning and Meeting Preparation; Coding or Data Work; General Administrative Tasks; Other"),
@@ -3716,9 +3751,9 @@ def build_report():
             ("Section 3: ChatGPT/Gemini/Claude", "<b>25. To what extent do you agree with the statement: “I want to continue using ChatGPT after the trial”?</b> Likert", "Strongly disagree; Disagree; Neutral; Agree; Strongly Agree"),
             ("Section 3: ChatGPT/Gemini/Claude", "Gemini questions mirror those asked at 19–25 for ChatGPT", ""),
             ("Section 3: ChatGPT/Gemini/Claude", "Claude questions mirror those asked at 19–25 for ChatGPT", ""),
-            ("Section 4: Final questions", "<b>42. The free versions of these Gen AI tools have limited functionality and no integration with our department’s enterprise systems (e.g., Microsoft Outlook, Excel, PowerPoint, etc). If you had continued access to these free public AI tools, would they continue to provide value in your work, over and above Copilot?*</b> Single choice", "Yes; No; Not Applicable – I didn’t use any of the Public Generative AI tools"),
-            ("Section 4: Final questions", "<b>43. Thinking about security and confidentiality obligations, how confident did you feel using the Public Gen AI tools in your day-to-day work?*</b> Single choice", "I didn’t use the public Gen AI tools; I was uncomfortable using them; I was comfortable using them; I was very comfortable using them"),
-            ("Section 4: Final questions", "<b>44. How effective were the safety features at communicating the rules and risks associated with the Public Gen AI tool trial?</b> Likert", "Introductory Email; Splash Screens (shown before entering the Gen AI websites). Scale: Not Effective at All / Slightly Effective / Moderately Effective / Highly Effective"),
+            ("Section 4: Final questions", "<b>42. The free versions of these Gen AI tools have limited functionality and no integration with our department’s enterprise systems (e.g., Microsoft Outlook, Excel, PowerPoint, etc). If you had continued access to these free public generative AI, would they continue to provide value in your work, over and above Copilot?*</b> Single choice", "Yes; No; Not Applicable – I didn’t use any of the Public Generative AI"),
+            ("Section 4: Final questions", "<b>43. Thinking about security and confidentiality obligations, how confident did you feel using the Public Generative AI in your day-to-day work?*</b> Single choice", "I didn’t use the public generative AI; I was uncomfortable using them; I was comfortable using them; I was very comfortable using them"),
+            ("Section 4: Final questions", "<b>44. How effective were the safety features at communicating the rules and risks associated with the Public Generative AI trial?</b> Likert", "Introductory Email; Splash Screens (shown before entering the Gen AI websites). Scale: Not Effective at All / Slightly Effective / Moderately Effective / Highly Effective"),
             ("Section 4: Final questions", "<b>45. How effective were the upload blockers used during the trial at blocking files classified OFFICIAL: Sensitive and above?</b> Single choice", "I didn’t notice them; Not Effective; Effective"),
             ("Section 4: Final questions", "<b>46. Did you encounter any security concerns while using the Generative AI tools?*</b> Single choice", "Yes; No — skip to Q48"),
             ("Section 4: Final questions", "<b>47. Briefly describe the security concerns.</b> Single line text", "Free text"),
